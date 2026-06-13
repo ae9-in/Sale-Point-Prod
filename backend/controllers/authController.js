@@ -116,7 +116,7 @@ const me = async (req, res, next) => {
 
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, phone, email, password } = req.body;
+    const { name, phone, email } = req.body;
     const userId = req.user.id;
     const userRole = req.user.role;
 
@@ -126,17 +126,10 @@ const updateProfile = async (req, res, next) => {
       let paramIndex = 3;
 
       if (email) {
-        // Check if email is taken
         const existingUser = await query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, userId]);
         if (existingUser.rows.length > 0) return errorResponse(res, 'Email already in use', 400);
         sql += `, email = $${paramIndex++}`;
         params.push(email);
-      }
-      
-      if (password) {
-        const hashedPwd = await hashPassword(password);
-        sql += `, password = $${paramIndex++}`;
-        params.push(hashedPwd);
       }
 
       sql += ` WHERE id = $${paramIndex} RETURNING id, name, email, phone, role, status`;
@@ -145,16 +138,29 @@ const updateProfile = async (req, res, next) => {
       const result = await query(sql, params);
       return successResponse(res, result.rows[0], 'Profile updated successfully');
     } else {
-      // Employees can only update name and phone
       const result = await query(
         'UPDATE users SET name = $1, phone = $2 WHERE id = $3 RETURNING id, name, email, phone, role, status',
         [name, phone, userId]
       );
       return successResponse(res, result.rows[0], 'Profile updated successfully');
     }
-  } catch (err) {
-    next(err);
-  }
+  } catch (err) { next(err); }
 };
 
-module.exports = { register, login, refresh, logout, me, updateProfile };
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    const userRes = await query('SELECT password FROM users WHERE id = $1', [userId]);
+    const isMatch = await comparePassword(currentPassword, userRes.rows[0].password);
+    if (!isMatch) return errorResponse(res, 'Current password incorrect', 401);
+
+    const hashedPwd = await hashPassword(newPassword);
+    await query('UPDATE users SET password = $1 WHERE id = $2', [hashedPwd, userId]);
+    
+    return successResponse(res, null, 'Password changed successfully');
+  } catch (err) { next(err); }
+};
+
+module.exports = { register, login, refresh, logout, me, updateProfile, changePassword };

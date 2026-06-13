@@ -9,8 +9,13 @@ import {
 
 const Sidebar = () => {
   const { user, logout } = useAuthStore();
-  const { sidebarOpen } = useUiStore();
+  const { sidebarOpen, toggleSidebar } = useUiStore();
   const isAdmin = user?.role === 'SUPER_ADMIN';
+
+  const handleLogout = () => {
+    if (window.innerWidth < 1024) toggleSidebar();
+    logout();
+  };
 
   const adminLinks = [
     { name: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
@@ -83,11 +88,16 @@ const Sidebar = () => {
 
       <div className="absolute bottom-0 w-full p-3 border-t border-dark-border">
         <button 
-          onClick={logout}
+          onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm text-brand-danger hover:bg-brand-danger/10 transition-colors group"
         >
           <LogOut className="w-4 h-4" />
-          {sidebarOpen && <span className="font-medium">Logout</span>}
+          <span className={cn(
+            "font-medium transition-all duration-300",
+            !sidebarOpen && "lg:opacity-0 lg:invisible"
+          )}>
+            Logout
+          </span>
         </button>
       </div>
     </aside>

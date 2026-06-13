@@ -1,55 +1,33 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from '../../api/axiosInstance';
 import { useAuthStore } from '../../store/authStore';
 import Spinner from '../../components/ui/Spinner';
 import toast from 'react-hot-toast';
-import { Building2, Clock, CheckCircle2, ChevronRight } from 'lucide-react';
+import { Building2, Clock, CheckCircle2, ChevronRight, FileText } from 'lucide-react';
 
 const Businesses = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expandedBizId, setExpandedBizId] = useState(null);
-  const [bizDetails, setBizDetails] = useState({});
 
   useEffect(() => {
-    const fetchAssigned = async () => {
+    const fetchMyBusinesses = async () => {
       try {
-        const res = await axios.get(`/admin/employees/${user.id}/businesses`);
+        const res = await axios.get('/employee/businesses');
         setBusinesses(res.data.data);
       } catch (err) {
-        toast.error('Failed to load assigned businesses');
+        toast.error('Failed to load businesses');
       } finally {
         setLoading(false);
       }
     };
-    if (user?.id) fetchAssigned();
+    if (user?.id) fetchMyBusinesses();
   }, [user]);
 
-  const toggleExpand = async (bizId) => {
-    if (expandedBizId === bizId) {
-      setExpandedBizId(null);
-      return;
-    }
-    
-    setExpandedBizId(bizId);
-    if (!bizDetails[bizId]) {
-      try {
-        const [timingsRes, activitiesRes] = await Promise.all([
-          axios.get(`/businesses/${bizId}/timings`),
-          axios.get(`/businesses/${bizId}/activity-types`)
-        ]);
-        setBizDetails(prev => ({
-          ...prev,
-          [bizId]: {
-            timings: timingsRes.data.data,
-            activityTypes: activitiesRes.data.data
-          }
-        }));
-      } catch (err) {
-        toast.error('Failed to load business details');
-      }
-    }
+  const handleTimingClick = (businessId, timingId) => {
+    navigate(`/employee/submit-report?businessId=${businessId}&timingId=${timingId}`);
   };
 
   if (loading) {
@@ -62,103 +40,76 @@ const Businesses = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold text-content-primary">My Assigned Businesses</h1>
-        <p className="text-content-secondary mt-1">Review the business units you are assigned to monitor.</p>
+    <div className="space-y-4 animate-fade-in pb-10">
+      <div className="px-1">
+        <h1 className="text-xl font-bold text-content-primary">My Businesses</h1>
+        <p className="text-xs text-content-secondary">Select a timing or form to submit your report.</p>
       </div>
 
       {businesses.length === 0 ? (
-        <div className="card p-12 text-center text-content-muted">
-          No businesses currently assigned. Contact your administrator if you believe this is an error.
+        <div className="card text-center py-10">
+          <p className="text-content-muted">No businesses assigned to you yet.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {businesses.map((biz) => {
-            const isExpanded = expandedBizId === biz.id;
-            const details = bizDetails[biz.id];
-
-            return (
-              <div 
-                key={biz.id}
-                className={`card p-6 flex flex-col justify-between transition-all duration-300 border ${
-                  isExpanded ? 'border-brand-primary bg-brand-primary/5 shadow-lg shadow-brand-primary/5' : 'border-dark-border hover:border-brand-primary/30'
-                }`}
-              >
-                <div>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                        <Building2 className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h2 className="text-lg font-bold text-content-primary">{biz.business_name}</h2>
-                        <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-brand-success/15 text-brand-success">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Active
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <button 
-                      onClick={() => toggleExpand(biz.id)}
-                      className={`p-2 rounded-md hover:bg-dark-bg transition-transform duration-300 text-content-muted hover:text-content-primary ${
-                        isExpanded ? 'rotate-90 text-brand-primary' : ''
-                      }`}
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {businesses.map((business) => (
+            <div key={business.id} className="card flex flex-col h-full hover:border-brand-primary/40 transition-all group overflow-hidden">
+              <div className="p-4 border-b border-dark-border bg-dark-bg/20">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-bold text-content-primary text-base line-clamp-1">{business.business_name}</h3>
+                    <p className="text-[11px] text-content-muted line-clamp-1 mt-0.5">{business.description || 'Assigned Business'}</p>
                   </div>
-
-                  {biz.description && (
-                    <p className="text-content-secondary text-sm mt-4 leading-relaxed">{biz.description}</p>
-                  )}
-
-                  {isExpanded && (
-                    <div className="mt-6 pt-6 border-t border-dark-border animate-fade-in space-y-4 text-sm">
-                      {/* Timings */}
-                      <div>
-                        <h4 className="font-semibold text-content-primary mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wider text-content-muted">
-                          <Clock className="w-4 h-4 text-brand-secondary" />
-                          Reporting Shift Timings
-                        </h4>
-                        {details?.timings?.length === 0 ? (
-                          <span className="text-content-muted text-xs">No timing intervals defined.</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {details?.timings?.map(t => (
-                              <span key={t.id} className="bg-dark-bg border border-dark-border px-3 py-1 rounded-md text-xs font-medium text-content-primary">
-                                {t.timing_name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Activity Types */}
-                      <div>
-                        <h4 className="font-semibold text-content-primary mb-2 flex items-center gap-1.5 text-xs uppercase tracking-wider text-content-muted">
-                          <Building2 className="w-4 h-4 text-brand-primary" />
-                          Activity Categories
-                        </h4>
-                        {details?.activityTypes?.length === 0 ? (
-                          <span className="text-content-muted text-xs">No activity categories available.</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-2">
-                            {details?.activityTypes?.map(a => (
-                              <span key={a.id} className="bg-dark-bg border border-dark-border px-3 py-1 rounded-md text-xs font-medium text-content-primary">
-                                {a.name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  <div className="rounded-full bg-brand-primary/10 p-2 text-brand-primary">
+                    <Building2 size={16} />
+                  </div>
                 </div>
               </div>
-            );
-          })}
+
+              <div className="p-4 flex-1 space-y-4">
+                {/* Timings Section */}
+                <div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-content-muted mb-2">
+                    <Clock size={12} className="text-brand-primary" /> Scheduled Timings
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {business.timings?.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => handleTimingClick(business.id, t.id)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-dark-border bg-dark-bg px-2.5 py-1.5 text-xs font-medium text-content-primary hover:border-brand-primary hover:bg-brand-primary/5 transition-all active:scale-95"
+                      >
+                        {t.timing_name}
+                        <ChevronRight size={12} className="text-content-muted group-hover:text-brand-primary" />
+                      </button>
+                    ))}
+                    {(!business.timings || business.timings.length === 0) && (
+                      <p className="text-[11px] text-content-muted italic">No timings scheduled</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Forms Section */}
+                <div>
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-content-muted mb-2">
+                    <FileText size={12} className="text-brand-secondary" /> Reporting Forms
+                  </div>
+                  <div className="space-y-1.5">
+                    {business.activityTypes?.map((a) => (
+                      <button
+                        key={a.id}
+                        onClick={() => navigate(`/employee/submit-report?businessId=${business.id}`)}
+                        className="flex w-full items-center justify-between rounded-lg bg-dark-bg/50 p-2 text-xs text-content-secondary hover:text-brand-primary transition-colors border border-transparent hover:border-brand-primary/20"
+                      >
+                        <span className="truncate">{a.name}</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

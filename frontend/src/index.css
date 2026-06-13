@@ -43,7 +43,7 @@
   }
 
   body {
-    @apply bg-dark-bg text-[13px] text-content-primary antialiased transition-colors duration-300;
+    @apply bg-dark-bg text-[12px] md:text-[13px] text-content-primary antialiased transition-colors duration-300;
     font-family: 'Inter', sans-serif;
   }
 
@@ -69,7 +69,7 @@
 @layer components {
   /* UI Rules from specs */
   .card {
-    @apply rounded-xl border border-dark-border bg-dark-surface/80 backdrop-blur-md shadow-sm shadow-slate-900/5 transition-colors p-4 md:p-5;
+    @apply rounded-xl border border-dark-border bg-dark-surface/80 backdrop-blur-md shadow-sm shadow-slate-900/5 transition-colors p-3 md:p-5;
   }
 
   [data-theme='light'] .card {

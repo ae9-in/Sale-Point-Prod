@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import axios from '../../api/axiosInstance';
 import { useAuthStore } from '../../store/authStore';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import Spinner from '../../components/ui/Spinner';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, Clock, AlertCircle } from 'lucide-react';
 
 const SubmitReport = () => {
   const { user } = useAuthStore();
+  const location = useLocation();
   const [businesses, setBusinesses] = useState([]);
   const [timings, setTimings] = useState([]);
   const [activityTypes, setActivityTypes] = useState([]);
@@ -26,11 +28,40 @@ const SubmitReport = () => {
 
   const { register, handleSubmit, reset } = useForm();
 
+  // Smart Alert Logic
+  const nextScheduledTiming = useMemo(() => {
+    if (!selectedBusiness || !timings.length) return null;
+    
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const parseTime = (t) => {
+      const [time, ampm] = t.split(' ');
+      let [h, m] = time.split(':').map(Number);
+      if (ampm === 'PM' && h !== 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+      return h * 60 + m;
+    };
+
+    const sorted = [...timings].sort((a, b) => parseTime(a.timing_name) - parseTime(b.timing_name));
+    return sorted.find(t => parseTime(t.timing_name) > currentMinutes) || sorted[0];
+  }, [selectedBusiness, timings]);
+
   useEffect(() => {
     const fetchBusinesses = async () => {
       try {
         const res = await axios.get(`/admin/employees/${user.id}/businesses`);
-        setBusinesses(res.data.data);
+        const bizList = res.data.data;
+        setBusinesses(bizList);
+
+        // Handle URL pre-fill
+        const params = new URLSearchParams(location.search);
+        const preBiz = params.get('businessId');
+        const preTime = params.get('timingId');
+        
+        if (preBiz) setSelectedBusiness(preBiz);
+        if (preTime) setSelectedTiming(preTime);
+        
       } catch (err) {
         toast.error('Failed to load businesses');
       } finally {
@@ -38,7 +69,7 @@ const SubmitReport = () => {
       }
     };
     if (user?.id) fetchBusinesses();
-  }, [user]);
+  }, [user, location]);
 
   useEffect(() => {
     if (!selectedBusiness) {
@@ -132,20 +163,41 @@ const SubmitReport = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto animate-fade-in">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-content-primary">Submit Daily Report</h1>
+    <div className="max-w-3xl mx-auto animate-fade-in pb-10">
+      {nextScheduledTiming && selectedTiming !== nextScheduledTiming.id && (
+        <div className="mb-6 rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="rounded-full bg-brand-primary/10 p-2 text-brand-primary">
+              <Clock size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-primary">Submission Alert</p>
+              <p className="text-sm font-medium text-content-primary">Your next report is due at <span className="font-bold">{nextScheduledTiming.timing_name}</span></p>
+            </div>
+          </div>
+          <Button 
+            variant="secondary" 
+            className="h-8 text-[11px] px-4 w-full sm:w-auto"
+            onClick={() => setSelectedTiming(nextScheduledTiming.id)}
+          >
+            Start this report
+          </Button>
+        </div>
+      )}
+
+      <div className="mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-content-primary">Submit Daily Report</h1>
         <p className="text-content-secondary mt-1">Log your field activities and performance data.</p>
       </div>
 
-      <div className="card p-6 md:p-8">
+      <div className="card p-5 md:p-8">
         <div className="mb-6 flex flex-col gap-3 rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="font-semibold text-content-primary">Need help with this business?</h2>
-            <p className="text-sm text-content-secondary">Send a query to admin for the selected business.</p>
+            <h2 className="text-base font-semibold text-content-primary leading-tight">Need help with this business?</h2>
+            <p className="text-xs text-content-secondary mt-1">Send a query to admin for the selected business.</p>
           </div>
-          <Button type="button" variant="secondary" onClick={() => setShowQuestion((value) => !value)}>
-            <MessageSquare className="mr-2 h-4 w-4" />
+          <Button type="button" variant="secondary" className="h-9 text-xs" onClick={() => setShowQuestion((value) => !value)}>
+            <MessageSquare className="mr-2 h-3.5 w-3.5" />
             Doubt / Query
           </Button>
         </div>
@@ -160,18 +212,18 @@ const SubmitReport = () => {
               placeholder="Write your question for admin..."
             />
             <div className="mt-3 flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => setShowQuestion(false)}>Cancel</Button>
-              <Button type="button" onClick={submitQuestion}>Send Query</Button>
+              <Button type="button" variant="secondary" className="h-9 text-xs" onClick={() => setShowQuestion(false)}>Cancel</Button>
+              <Button type="button" className="h-9 text-xs" onClick={submitQuestion}>Send Query</Button>
             </div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
-              <label className="block text-sm font-medium text-content-secondary mb-1">Business</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-content-muted mb-1.5 ml-1">Business</label>
               <select 
-                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors"
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors"
                 value={selectedBusiness}
                 onChange={(e) => setSelectedBusiness(e.target.value)}
                 required
@@ -185,9 +237,9 @@ const SubmitReport = () => {
 
             {selectedBusiness && (
               <div>
-                <label className="block text-sm font-medium text-content-secondary mb-1">Timing</label>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-content-muted mb-1.5 ml-1">Timing</label>
                 <select 
-                  className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors"
+                  className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors"
                   value={selectedTiming}
                   onChange={(e) => setSelectedTiming(e.target.value)}
                   required
@@ -203,9 +255,9 @@ const SubmitReport = () => {
 
           {selectedBusiness && (
             <div>
-              <label className="block text-sm font-medium text-content-secondary mb-1">Activity Type</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-content-muted mb-1.5 ml-1">Activity Type</label>
               <select 
-                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors"
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors"
                 value={selectedActivity}
                 onChange={(e) => setSelectedActivity(e.target.value)}
                 required
@@ -220,15 +272,17 @@ const SubmitReport = () => {
 
           {fields.length > 0 && (
             <div className="mt-8 pt-6 border-t border-dark-border animate-fade-in">
-              <h3 className="text-lg font-medium text-content-primary mb-6">Activity Details</h3>
-              <div className="space-y-6">
+              <h3 className="text-base font-bold text-content-primary mb-6 flex items-center gap-2 uppercase tracking-widest border-l-2 border-brand-primary pl-3">
+                Report Details
+              </h3>
+              <div className="grid grid-cols-1 gap-5">
                 {fields.map(field => (
-                  <div key={field.id}>
+                  <div key={field.id} className="space-y-1">
                     {field.field_type === 'textarea' ? (
                       <div className="w-full">
-                        <label className="block text-sm font-medium text-content-secondary mb-1">{field.field_name}</label>
+                        <label className="block text-[13px] font-medium text-content-secondary mb-1">{field.field_name}</label>
                         <textarea
-                          className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary min-h-[100px] transition-colors"
+                          className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary min-h-[100px] transition-colors"
                           {...register(`field_${field.id}`, { required: true })}
                         />
                       </div>
@@ -236,12 +290,14 @@ const SubmitReport = () => {
                       <Input
                         label={field.field_name}
                         type="number"
+                        className="h-10"
                         {...register(`field_${field.id}`, { required: true })}
                       />
                     ) : (
                       <Input
                         label={field.field_name}
                         type="text"
+                        className="h-10"
                         {...register(`field_${field.id}`, { required: true })}
                       />
                     )}
@@ -250,7 +306,7 @@ const SubmitReport = () => {
               </div>
 
               <div className="mt-8">
-                <Button type="submit" className="w-full" isLoading={submitting}>
+                <Button type="submit" className="w-full h-11" isLoading={submitting}>
                   Submit Report
                 </Button>
               </div>
