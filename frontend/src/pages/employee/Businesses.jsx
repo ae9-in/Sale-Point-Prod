@@ -53,21 +53,24 @@ const Businesses = () => {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {businesses.map((business) => (
-            <div key={business.id} className="card flex flex-col h-full hover:border-brand-primary/40 transition-all group overflow-hidden">
-              <div className="p-4 border-b border-dark-border bg-dark-bg/20">
+            <div key={business.id} className="card flex flex-col h-full hover:border-brand-primary/40 transition-all group overflow-hidden active:scale-[0.98]">
+              <button 
+                onClick={() => navigate(`/employee/submit-report?businessId=${business.id}`)}
+                className="p-4 border-b border-dark-border bg-dark-bg/20 text-left w-full transition-colors hover:bg-dark-bg/40"
+              >
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-bold text-content-primary text-base line-clamp-1">{business.business_name}</h3>
                     <p className="text-[11px] text-content-muted line-clamp-1 mt-0.5">{business.description || 'Assigned Business'}</p>
                   </div>
-                  <div className="rounded-full bg-brand-primary/10 p-2 text-brand-primary">
+                  <div className="rounded-full bg-brand-primary/10 p-2 text-brand-primary group-hover:bg-brand-primary group-hover:text-white transition-colors">
                     <Building2 size={16} />
                   </div>
                 </div>
-              </div>
+              </button>
 
               <div className="p-4 flex-1 space-y-4">
-                {/* Timings Section */}
+          ...
                 <div>
                   <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-content-muted mb-2">
                     <Clock size={12} className="text-brand-primary" /> Scheduled Timings

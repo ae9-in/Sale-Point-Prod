@@ -123,7 +123,15 @@ const getEmployeeBusinesses = async (req, res, next) => {
       WHERE eb.employee_id = $1
     `;
     const result = await query(sql, [id]);
-    return successResponse(res, result.rows, 'Assigned businesses fetched');
+
+    // Fetch timings and activity types for each business
+    const businesses = await Promise.all(result.rows.map(async (b) => {
+      const timings = await query('SELECT * FROM business_timings WHERE business_id = $1 ORDER BY timing_name ASC', [b.id]);
+      const activities = await query('SELECT * FROM activity_types WHERE business_id = $1', [b.id]);
+      return { ...b, timings: timings.rows, activityTypes: activities.rows };
+    }));
+
+    return successResponse(res, businesses, 'Assigned businesses fetched');
   } catch (err) {
     next(err);
   }

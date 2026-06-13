@@ -39,7 +39,7 @@ const Sidebar = () => {
 
   return (
     <aside className={cn(
-      "fixed left-0 top-0 z-40 h-screen bg-dark-bg/80 backdrop-blur-xl border-r border-dark-border transition-all duration-300 flex flex-col",
+      "fixed left-0 top-0 z-40 h-screen bg-dark-bg/80 backdrop-blur-xl border-r border-dark-border transition-all duration-300 flex flex-col pb-16 lg:pb-0",
       sidebarOpen ? "translate-x-0 w-[240px]" : "-translate-x-full lg:translate-x-0 lg:w-[72px]"
     )}>
       <div className="flex h-14 items-center justify-center border-b border-dark-border relative px-4 shrink-0">
@@ -87,10 +87,10 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      <div className="p-3 border-t border-dark-border shrink-0 pb-20 lg:pb-3">
+      <div className="p-3 border-t border-dark-border shrink-0">
         <button 
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm text-brand-danger hover:bg-brand-danger/10 transition-colors group"
+          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm text-brand-danger hover:bg-brand-danger/10 transition-colors group active:bg-brand-danger/20"
         >
           <LogOut className="w-4 h-4" />
           <span className={cn(

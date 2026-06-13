@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from '../../api/axiosInstance';
 import { useAuthStore } from '../../store/authStore';
 import Button from '../../components/ui/Button';
@@ -6,20 +6,28 @@ import Input from '../../components/ui/Input';
 import Spinner from '../../components/ui/Spinner';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../../components/ui/Table';
 import toast from 'react-hot-toast';
-import { Check, KeyRound, MessageSquare, Plus, Trash2, UserCog, X } from 'lucide-react';
+import { 
+  Check, KeyRound, MessageSquare, Plus, Trash2, UserCog, X,
+  User, Mail, Phone, Shield, Lock, Users, AlertCircle, Clock
+} from 'lucide-react';
+import { cn } from '../../utils/cn';
 
 const emptyEmployee = { name: '', email: '', phone: '', password: '' };
 
 const AdminProfile = () => {
   const { user, setAuth, token } = useAuthStore();
-  const [formData, setFormData] = useState({ name: '', phone: '', email: '', password: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '' });
+  const [passwords, setPasswords] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [employeeForm, setEmployeeForm] = useState(emptyEmployee);
+  
   const [employees, setEmployees] = useState([]);
   const [pendingUsers, setPendingUsers] = useState([]);
   const [doubts, setDoubts] = useState([]);
-  const [passwords, setPasswords] = useState({});
+  const [adminPasswords, setAdminPasswords] = useState({}); // For user management pwd reset
   const [responses, setResponses] = useState({});
+  
   const [loading, setLoading] = useState(false);
+  const [passLoading, setPassLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
@@ -28,7 +36,6 @@ const AdminProfile = () => {
         name: user.name || '',
         phone: user.phone || '',
         email: user.email || '',
-        password: '',
       });
     }
   }, [user]);
@@ -45,7 +52,7 @@ const AdminProfile = () => {
       setPendingUsers(pendingRes.data.data);
       setDoubts(doubtsRes.data.data);
     } catch (err) {
-      toast.error('Failed to load admin management data');
+      toast.error('Failed to load management data');
     } finally {
       setDataLoading(false);
     }
@@ -53,226 +60,275 @@ const AdminProfile = () => {
 
   useEffect(() => { fetchAdminData(); }, []);
 
-  const handleProfileChange = (event) => {
-    setFormData((previous) => ({ ...previous, [event.target.name]: event.target.value }));
-  };
-
-  const handleEmployeeChange = (event) => {
-    setEmployeeForm((previous) => ({ ...previous, [event.target.name]: event.target.value }));
-  };
-
-  const handleProfileSubmit = async (event) => {
-    event.preventDefault();
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
     try {
       setLoading(true);
       const res = await axios.put('/auth/profile', formData);
       setAuth(res.data.data, token);
       toast.success('Profile updated');
-      setFormData((previous) => ({ ...previous, password: '' }));
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to update profile');
+      toast.error(err.response?.data?.error || 'Update failed');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateEmployee = async (event) => {
-    event.preventDefault();
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      return toast.error('New passwords do not match');
+    }
+    try {
+      setPassLoading(true);
+      await axios.put('/auth/change-password', passwords);
+      toast.success('Password changed successfully');
+      setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to change password');
+    } finally {
+      setPassLoading(false);
+    }
+  };
+
+  const handleCreateEmployee = async (e) => {
+    e.preventDefault();
     if (!employeeForm.name || !employeeForm.email || !employeeForm.password) {
-      toast.error('Name, email, and password are required');
-      return;
+      return toast.error('Required fields missing');
     }
     try {
       await axios.post('/admin/users', employeeForm);
-      toast.success('Employee account created');
+      toast.success('Employee created');
       setEmployeeForm(emptyEmployee);
       fetchAdminData();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to create employee');
+      toast.error(err.response?.data?.error || 'Failed to create');
     }
   };
 
   const handleApprove = async (id) => {
     try {
       await axios.patch(`/admin/users/${id}/approve`);
-      toast.success('Registration approved');
+      toast.success('Approved');
       fetchAdminData();
-    } catch (err) {
-      toast.error('Failed to approve user');
-    }
+    } catch (err) { toast.error('Error'); }
   };
 
   const handleReject = async (id) => {
     try {
       await axios.patch(`/admin/users/${id}/reject`);
-      toast.success('Registration rejected');
+      toast.success('Rejected');
       fetchAdminData();
-    } catch (err) {
-      toast.error('Failed to reject user');
-    }
+    } catch (err) { toast.error('Error'); }
   };
 
   const handleDeleteUser = async (id) => {
-    if (!confirm('Delete this user account?')) return;
+    if (!confirm('Delete user?')) return;
     try {
       await axios.delete(`/admin/users/${id}`);
-      toast.success('User deleted');
+      toast.success('Deleted');
       fetchAdminData();
-    } catch (err) {
-      toast.error('Failed to delete user');
-    }
+    } catch (err) { toast.error('Error'); }
   };
 
-  const handlePasswordReset = async (id) => {
-    const password = passwords[id];
-    if (!password || password.length < 6) {
-      toast.error('Enter a password with at least 6 characters');
-      return;
-    }
+  const handleUserPasswordReset = async (id) => {
+    const pwd = adminPasswords[id];
+    if (!pwd || pwd.length < 6) return toast.error('Min 6 characters');
     try {
-      await axios.patch(`/admin/users/${id}/password`, { password });
-      toast.success('Password updated');
-      setPasswords((previous) => ({ ...previous, [id]: '' }));
-    } catch (err) {
-      toast.error('Failed to update password');
-    }
+      await axios.patch(`/admin/users/${id}/password`, { password: pwd });
+      toast.success('Password reset');
+      setAdminPasswords({...adminPasswords, [id]: ''});
+    } catch (err) { toast.error('Error'); }
   };
 
   const handleResolveDoubt = async (id) => {
     try {
       await axios.patch(`/doubts/${id}/resolve`, { response: responses[id] || '' });
-      toast.success('Query marked resolved');
-      setResponses((previous) => ({ ...previous, [id]: '' }));
+      toast.success('Resolved');
       fetchAdminData();
-    } catch (err) {
-      toast.error('Failed to resolve query');
-    }
+    } catch (err) { toast.error('Error'); }
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-lg font-bold text-content-primary">Profile Settings</h1>
-        <p className="mt-1 text-content-secondary">Manage admin account, employee accounts, approvals, and employee queries.</p>
-      </div>
-
-      <div className="card motion-card motion-sheen p-5 md:p-5">
-        <h2 className="mb-4 text-base font-semibold text-content-primary">Admin Account Settings</h2>
-        <form onSubmit={handleProfileSubmit} className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Input label="Full Name" name="name" value={formData.name} onChange={handleProfileChange} required />
-          <Input label="Phone Number" name="phone" value={formData.phone} onChange={handleProfileChange} required />
-          <Input label="Email Address" name="email" type="email" value={formData.email} onChange={handleProfileChange} required />
-          <Input label="New Password" name="password" type="password" placeholder="Leave blank to keep current password" value={formData.password} onChange={handleProfileChange} />
-          <div className="md:col-span-2"><Button type="submit" isLoading={loading}>Save Changes</Button></div>
-        </form>
-      </div>
-
-      <div className="card motion-card motion-sheen p-5">
-        <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-content-primary"><Plus className="h-4 w-4 text-brand-primary" /> Create Employee Account</h2>
-        <form onSubmit={handleCreateEmployee} className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Input label="Full Name" name="name" value={employeeForm.name} onChange={handleEmployeeChange} required />
-          <Input label="Email" name="email" type="email" value={employeeForm.email} onChange={handleEmployeeChange} required />
-          <Input label="Phone" name="phone" value={employeeForm.phone} onChange={handleEmployeeChange} />
-          <Input label="Password" name="password" type="password" value={employeeForm.password} onChange={handleEmployeeChange} placeholder="••••••••" required />
-          <div className="md:col-span-2 xl:col-span-4"><Button type="submit">Create User</Button></div>
-        </form>
-      </div>
-
-      {dataLoading ? (
-        <div className="flex h-64 w-full flex-col items-center justify-center space-y-4">
-          <Spinner size="lg" />
-          <p className="text-sm font-medium text-content-secondary animate-pulse">Loading management data...</p>
+    <div className="max-w-6xl mx-auto space-y-6 animate-fade-in pb-10">
+      {/* Branded Header */}
+      <div className="flex items-center gap-4 px-1">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center text-2xl text-white font-bold shadow-xl shadow-brand-primary/20">
+          {user?.name?.charAt(0).toUpperCase()}
         </div>
-      ) : (
-        <>
-          <div className="card motion-card motion-sheen overflow-hidden">
-            <div className="border-b border-dark-border px-5 py-4">
-              <h2 className="font-semibold text-content-primary">Account Approvals</h2>
-            </div>
-            <Table>
-              <Thead><Tr><Th>Name</Th><Th>Email</Th><Th>Phone</Th><Th>Requested</Th><Th className="text-right">Action</Th></Tr></Thead>
-              <Tbody>
-                {pendingUsers.map((pending) => (
-                  <Tr key={pending.id}>
-                    <Td className="font-semibold text-content-primary">{pending.name}</Td>
-                    <Td>{pending.email}</Td>
-                    <Td>{pending.phone || '-'}</Td>
-                    <Td>{new Date(pending.created_at).toLocaleDateString()}</Td>
-                    <Td className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="secondary" onClick={() => handleReject(pending.id)}><X className="mr-1 h-4 w-4" /> Reject</Button>
-                        <Button onClick={() => handleApprove(pending.id)}><Check className="mr-1 h-4 w-4" /> Approve</Button>
-                      </div>
-                    </Td>
-                  </Tr>
-                ))}
-                {pendingUsers.length === 0 && <Tr><Td colSpan={5} className="py-8 text-center text-content-muted">No pending approvals.</Td></Tr>}
-              </Tbody>
-            </Table>
+        <div>
+          <h1 className="text-xl font-bold text-content-primary">Admin Control Center</h1>
+          <p className="text-xs text-content-muted flex items-center gap-1.5 mt-0.5 capitalize">
+            <Shield size={12} className="text-brand-primary" /> Management Account
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column: Admin Profile & User Creation */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="card">
+            <h3 className="text-sm font-bold text-content-primary mb-4 flex items-center gap-2">
+              <User size={16} className="text-brand-primary" /> My Profile
+            </h3>
+            <form onSubmit={handleUpdateProfile} className="space-y-4">
+              <Input label="Name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+              <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+              <Input label="Phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+              <Button type="submit" isLoading={loading} className="w-full">Update</Button>
+            </form>
           </div>
 
-          <div className="card motion-card motion-sheen overflow-hidden">
-            <div className="border-b border-dark-border px-5 py-4">
-              <h2 className="flex items-center gap-2 font-semibold text-content-primary"><UserCog className="h-4 w-4 text-brand-primary" /> User Management</h2>
-            </div>
-            <Table>
-              <Thead><Tr><Th>User</Th><Th>Assigned</Th><Th>Reset Password</Th><Th className="text-right">Delete</Th></Tr></Thead>
-              <Tbody>
-                {employees.map((employee) => (
-                  <Tr key={employee.id}>
-                    <Td><p className="font-semibold text-content-primary">{employee.name}</p><p className="text-xs text-content-muted">{employee.email}</p></Td>
-                    <Td>{employee.assignedBusinesses || 0} businesses</Td>
-                    <Td>
-                      <div className="flex max-w-md gap-2">
-                        <Input type="password" value={passwords[employee.id] || ''} onChange={(event) => setPasswords((previous) => ({ ...previous, [employee.id]: event.target.value }))} placeholder="New password" />
-                        <Button type="button" variant="secondary" onClick={() => handlePasswordReset(employee.id)}><KeyRound className="h-4 w-4" /></Button>
-                      </div>
-                    </Td>
-                    <Td className="text-right"><button className="text-content-muted hover:text-brand-danger" onClick={() => handleDeleteUser(employee.id)}><Trash2 className="h-4 w-4" /></button></Td>
-                  </Tr>
-                ))}
-                {employees.length === 0 && <Tr><Td colSpan={4} className="py-8 text-center text-content-muted">No users found.</Td></Tr>}
-              </Tbody>
-            </Table>
+          <div className="card">
+            <h3 className="text-sm font-bold text-content-primary mb-4 flex items-center gap-2">
+              <Lock size={16} className="text-brand-warning" /> Security
+            </h3>
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <Input label="Current Password" type="password" value={passwords.currentPassword} onChange={(e) => setPasswords({...passwords, currentPassword: e.target.value})} />
+              <Input label="New Password" type="password" value={passwords.newPassword} onChange={(e) => setPasswords({...passwords, newPassword: e.target.value})} />
+              <Input label="Confirm New" type="password" value={passwords.confirmPassword} onChange={(e) => setPasswords({...passwords, confirmPassword: e.target.value})} />
+              <Button type="submit" variant="secondary" isLoading={passLoading} className="w-full">Change Password</Button>
+            </form>
           </div>
 
-          <div className="card motion-card motion-sheen overflow-hidden">
-            <div className="border-b border-dark-border px-5 py-4">
-              <h2 className="flex items-center gap-2 font-semibold text-content-primary"><MessageSquare className="h-4 w-4 text-brand-primary" /> Employee Queries</h2>
+          <div className="card border-brand-primary/10 bg-brand-primary/[0.02]">
+            <h3 className="text-sm font-bold text-content-primary mb-4 flex items-center gap-2">
+              <Plus size={16} className="text-brand-primary" /> Create Employee
+            </h3>
+            <form onSubmit={handleCreateEmployee} className="space-y-4">
+              <Input label="Full Name" value={employeeForm.name} onChange={(e) => setEmployeeForm({...employeeForm, name: e.target.value})} />
+              <Input label="Email" type="email" value={employeeForm.email} onChange={(e) => setEmployeeForm({...employeeForm, email: e.target.value})} />
+              <Input label="Password" type="password" value={employeeForm.password} onChange={(e) => setEmployeeForm({...employeeForm, password: e.target.value})} placeholder="••••••••" />
+              <Button type="submit" className="w-full">Create User</Button>
+            </form>
+          </div>
+        </div>
+
+        {/* Right Column: Management Tables */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="card border-brand-primary/20 bg-brand-primary/5">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-brand-primary mb-1">Active Employees</div>
+              <p className="text-2xl font-black text-content-primary">{employees.length}</p>
             </div>
-            <Table>
-              <Thead><Tr><Th>Employee</Th><Th>Business</Th><Th>Query</Th><Th>Status</Th><Th>Response</Th></Tr></Thead>
-              <Tbody>
-                {doubts.map((doubt) => (
-                  <Tr key={doubt.id}>
-                    <Td className="font-semibold text-content-primary">{doubt.employee_name}</Td>
-                    <Td>{doubt.business_name}</Td>
-                    <Td>{doubt.question}</Td>
-                    <Td><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${doubt.status === 'RESOLVED' ? 'bg-brand-success/15 text-brand-success' : 'bg-brand-warning/15 text-brand-warning'}`}>{doubt.status}</span></Td>
-                    <Td>
-                      {doubt.status === 'RESOLVED' ? (
-                        <span className="text-content-secondary">{doubt.response || 'Resolved'}</span>
-                      ) : (
-                        <div className="flex min-w-[280px] gap-2">
-                          <Input value={responses[doubt.id] || ''} onChange={(event) => setResponses((previous) => ({ ...previous, [doubt.id]: event.target.value }))} placeholder="Optional response" />
-                          <Button type="button" onClick={() => handleResolveDoubt(doubt.id)}>Resolve</Button>
+            <div className="card border-brand-warning/20 bg-brand-warning/5">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-brand-warning mb-1">Pending</div>
+              <p className="text-2xl font-black text-content-primary">{pendingUsers.length}</p>
+            </div>
+            <div className="card border-brand-secondary/20 bg-brand-secondary/5">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-brand-secondary mb-1">Open Queries</div>
+              <p className="text-2xl font-black text-content-primary">{doubts.filter(d => d.status !== 'RESOLVED').length}</p>
+            </div>
+          </div>
+
+          {/* Pending Approvals */}
+          {pendingUsers.length > 0 && (
+            <div className="card border-brand-warning/20 overflow-hidden px-0 py-0">
+              <div className="px-5 py-3 border-b border-dark-border bg-brand-warning/5 flex items-center gap-2">
+                <AlertCircle size={14} className="text-brand-warning" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-content-primary">Pending Approvals</h3>
+              </div>
+              <Table>
+                <Tbody>
+                  {pendingUsers.map(u => (
+                    <Tr key={u.id}>
+                      <Td><p className="font-bold text-content-primary text-xs">{u.name}</p><p className="text-[10px] text-content-muted">{u.email}</p></Td>
+                      <Td className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => handleReject(u.id)} className="p-1.5 rounded-lg text-content-muted hover:bg-brand-danger/10 hover:text-brand-danger transition-colors"><X size={16} /></button>
+                          <button onClick={() => handleApprove(u.id)} className="p-1.5 rounded-lg text-brand-primary hover:bg-brand-primary/10 transition-colors"><Check size={16} /></button>
                         </div>
-                      )}
-                    </Td>
-                  </Tr>
-                ))}
-                {doubts.length === 0 && <Tr><Td colSpan={5} className="py-8 text-center text-content-muted">No employee queries yet.</Td></Tr>}
-              </Tbody>
-            </Table>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </div>
+          )}
+
+          {/* User Management */}
+          <div className="card overflow-hidden px-0 py-0">
+            <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/30">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-content-primary flex items-center gap-2">
+                <UserCog size={14} className="text-brand-primary" /> Active Users
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <Thead><Tr><Th className="text-[10px]">Employee</Th><Th className="text-[10px]">Reset Pwd</Th><Th className="text-right text-[10px]">Action</Th></Tr></Thead>
+                <Tbody>
+                  {employees.map(e => (
+                    <Tr key={e.id}>
+                      <Td><p className="font-bold text-content-primary text-xs">{e.name}</p><p className="text-[10px] text-content-muted">{e.email}</p></Td>
+                      <Td>
+                        <div className="flex items-center gap-2">
+                          <input 
+                            type="password" 
+                            className="bg-dark-bg border border-dark-border rounded px-2 py-1 text-[11px] w-24 focus:border-brand-primary outline-none"
+                            placeholder="New..."
+                            value={adminPasswords[e.id] || ''}
+                            onChange={v => setAdminPasswords({...adminPasswords, [e.id]: v.target.value})}
+                          />
+                          <button onClick={() => handleUserPasswordReset(e.id)} className="text-brand-primary hover:scale-110 transition-transform"><KeyRound size={14}/></button>
+                        </div>
+                      </Td>
+                      <Td className="text-right">
+                        <button onClick={() => handleDeleteUser(e.id)} className="text-content-muted hover:text-brand-danger p-1"><Trash2 size={14}/></button>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </div>
           </div>
-        </>
-      )}
+
+          {/* Queries */}
+          <div className="card overflow-hidden px-0 py-0">
+            <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/30">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-content-primary flex items-center gap-2">
+                <MessageSquare size={14} className="text-brand-primary" /> Support Queries
+              </h3>
+            </div>
+            <div className="divide-y divide-dark-border">
+              {doubts.map(d => (
+                <div key={d.id} className="p-4 bg-dark-bg/20">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <p className="text-xs font-bold text-content-primary">{d.employee_name}</p>
+                      <p className="text-[10px] text-brand-primary font-medium">{d.business_name}</p>
+                    </div>
+                    <span className={cn(
+                      "text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter",
+                      d.status === 'RESOLVED' ? "bg-brand-success/10 text-brand-success" : "bg-brand-warning/10 text-brand-warning"
+                    )}>
+                      {d.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-content-secondary bg-dark-bg p-2 rounded-lg mb-3 border border-dark-border/50">{d.question}</p>
+                  {d.status !== 'RESOLVED' && (
+                    <div className="flex gap-2">
+                      <input 
+                        className="flex-1 bg-dark-surface border border-dark-border rounded-lg px-3 py-1.5 text-xs outline-none focus:border-brand-primary"
+                        placeholder="Type response..."
+                        value={responses[d.id] || ''}
+                        onChange={v => setResponses({...responses, [d.id]: v.target.value})}
+                      />
+                      <Button className="h-8 text-xs px-4" onClick={() => handleResolveDoubt(d.id)}>Reply</Button>
+                    </div>
+                  )}
+                  {d.status === 'RESOLVED' && d.response && (
+                    <p className="text-[11px] text-content-muted italic pl-2 border-l-2 border-brand-success/30 ml-1">Resp: {d.response}</p>
+                  )}
+                </div>
+              ))}
+              {doubts.length === 0 && <p className="p-10 text-center text-xs text-content-muted">No queries to show</p>}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
 export default AdminProfile;
-
-
-
-
