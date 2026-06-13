@@ -137,11 +137,35 @@ const Businesses = () => {
     }
   };
 
+  const formatTo12Hour = (time24) => {
+    if (!time24 || !time24.includes(':')) return time24;
+    const [hours, minutes] = time24.split(':');
+    let h = parseInt(hours);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${minutes} ${ampm}`;
+  };
+
+  const formatTo24Hour = (time12) => {
+    if (!time12 || !time12.includes(' ')) return time12;
+    try {
+      const [time, ampm] = time12.split(' ');
+      let [hours, minutes] = time.split(':');
+      let h = parseInt(hours);
+      if (ampm === 'PM' && h !== 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+      return `${h.toString().padStart(2, '0')}:${minutes}`;
+    } catch (e) {
+      return time12;
+    }
+  };
+
   const handleAddTiming = async (event) => {
     event.preventDefault();
     if (!timingName.trim()) return;
     try {
-      await axios.post(`/businesses/${selectedBusinessId}/timings`, { timingName });
+      const formattedTime = formatTo12Hour(timingName);
+      await axios.post(`/businesses/${selectedBusinessId}/timings`, { timingName: formattedTime });
       setTimingName('');
       toast.success('Timing added');
       fetchBusinessDetail(selectedBusinessId);
@@ -162,13 +186,14 @@ const Businesses = () => {
 
   const startEditTiming = (timing) => {
     setEditingTimingId(timing.id);
-    setEditingTimingName(timing.timing_name);
+    setEditingTimingName(formatTo24Hour(timing.timing_name));
   };
 
   const handleUpdateTiming = async () => {
     if (!editingTimingId || !editingTimingName.trim()) return;
     try {
-      await axios.put(`/businesses/${selectedBusinessId}/timings/${editingTimingId}`, { timingName: editingTimingName });
+      const formattedTime = formatTo12Hour(editingTimingName);
+      await axios.put(`/businesses/${selectedBusinessId}/timings/${editingTimingId}`, { timingName: formattedTime });
       toast.success('Timing updated');
       setEditingTimingId('');
       setEditingTimingName('');
@@ -359,7 +384,7 @@ const Businesses = () => {
                   <div className="card motion-card motion-sheen p-5">
                     <h3 className="mb-4 flex items-center gap-2 font-semibold text-content-primary"><Clock className="h-4 w-4 text-brand-primary" /> Upload Timings</h3>
                     <form onSubmit={handleAddTiming} className="mb-4 flex gap-2">
-                      <Input value={timingName} onChange={(e) => setTimingName(e.target.value)} placeholder="Example: 11:00 AM" />
+                      <Input type="time" value={timingName} onChange={(e) => setTimingName(e.target.value)} />
                       <Button type="submit">Add</Button>
                     </form>
                     <div className="flex flex-wrap gap-2">
@@ -367,7 +392,8 @@ const Businesses = () => {
                         editingTimingId === timing.id ? (
                           <span key={timing.id} className="inline-flex items-center gap-2 rounded-xl border border-brand-primary/30 bg-brand-primary/5 px-2 py-1 text-sm">
                             <input
-                              className="w-28 bg-transparent px-1 text-content-primary outline-none"
+                              type="time"
+                              className="w-32 bg-transparent px-1 text-content-primary outline-none"
                               value={editingTimingName}
                               onChange={(event) => setEditingTimingName(event.target.value)}
                             />
