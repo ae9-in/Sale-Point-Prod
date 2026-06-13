@@ -15,7 +15,7 @@ const Businesses = () => {
   useEffect(() => {
     const fetchMyBusinesses = async () => {
       try {
-        const res = await axios.get('/employee/businesses');
+        const res = await axios.get(`/admin/employees/${user.id}/businesses`);
         setBusinesses(res.data.data);
       } catch (err) {
         toast.error('Failed to load businesses');

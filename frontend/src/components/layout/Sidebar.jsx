@@ -39,10 +39,10 @@ const Sidebar = () => {
 
   return (
     <aside className={cn(
-      "fixed left-0 top-0 z-40 h-screen bg-dark-bg/80 backdrop-blur-xl border-r border-dark-border transition-all duration-300",
+      "fixed left-0 top-0 z-40 h-screen bg-dark-bg/80 backdrop-blur-xl border-r border-dark-border transition-all duration-300 flex flex-col",
       sidebarOpen ? "translate-x-0 w-[240px]" : "-translate-x-full lg:translate-x-0 lg:w-[72px]"
     )}>
-      <div className="flex h-14 items-center justify-center border-b border-dark-border relative px-4">
+      <div className="flex h-14 items-center justify-center border-b border-dark-border relative px-4 shrink-0">
         <h1 className="text-lg font-bold text-content-primary tracking-tight truncate">
           {sidebarOpen ? (
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-brand-primary to-brand-secondary">Sale Point</span>
@@ -53,7 +53,7 @@ const Sidebar = () => {
         {/* Close button for mobile */}
         {sidebarOpen && (
           <button 
-            onClick={() => useUiStore.getState().toggleSidebar()}
+            onClick={() => toggleSidebar()}
             className="absolute right-2 lg:hidden p-1.5 rounded-lg hover:bg-dark-surface text-content-muted"
           >
             <LogOut className="w-4 h-4 rotate-180" />
@@ -61,11 +61,12 @@ const Sidebar = () => {
         )}
       </div>
 
-      <nav className="p-3 space-y-1.5 h-[calc(100vh-118px)] overflow-y-auto">
+      <nav className="p-3 space-y-1.5 flex-1 overflow-y-auto">
         {links.map((link) => (
           <NavLink
             key={link.name}
             to={link.path}
+            onClick={() => { if(window.innerWidth < 1024) toggleSidebar() }}
             className={({ isActive }) => cn(
               "flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-content-secondary transition-all group",
               isActive ? "bg-brand-primary/10 text-brand-primary relative" : "hover:bg-dark-surface hover:text-content-primary"
@@ -86,7 +87,7 @@ const Sidebar = () => {
         ))}
       </nav>
 
-      <div className="absolute bottom-0 w-full p-3 border-t border-dark-border">
+      <div className="p-3 border-t border-dark-border shrink-0 pb-20 lg:pb-3">
         <button 
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm text-brand-danger hover:bg-brand-danger/10 transition-colors group"

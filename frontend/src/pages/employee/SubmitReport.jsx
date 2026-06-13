@@ -163,29 +163,31 @@ const SubmitReport = () => {
   }
 
   return (
-    <div className="max-w-3xl mx-auto animate-fade-in pb-10">
+    <div className="max-w-3xl mx-auto animate-fade-in pb-10 px-1">
       {nextScheduledTiming && selectedTiming !== nextScheduledTiming.id && (
-        <div className="mb-6 rounded-xl border border-brand-primary/20 bg-brand-primary/5 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-3">
-            <div className="rounded-full bg-brand-primary/10 p-2 text-brand-primary">
-              <Clock size={20} />
+        <div className="mb-6 overflow-hidden rounded-2xl border-2 border-brand-primary bg-brand-primary/10 shadow-lg shadow-brand-primary/10 animate-in zoom-in-95 duration-300">
+          <div className="flex flex-col sm:flex-row items-center gap-4 p-5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-primary text-white shadow-lg shadow-brand-primary/30">
+              <Clock size={24} strokeWidth={2.5} />
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-brand-primary">Submission Alert</p>
-              <p className="text-sm font-medium text-content-primary">Your next report is due at <span className="font-bold">{nextScheduledTiming.timing_name}</span></p>
+            <div className="flex-1 text-center sm:text-left">
+              <p className="text-[12px] font-black uppercase tracking-widest text-brand-primary">Action Required</p>
+              <h3 className="text-base font-bold text-content-primary mt-0.5">
+                Next report is due at <span className="text-brand-primary underline underline-offset-4">{nextScheduledTiming.timing_name}</span>
+              </h3>
+              <p className="text-xs text-content-secondary mt-1 opacity-80 italic">Don't forget to submit on time!</p>
             </div>
+            <Button 
+              className="h-10 px-6 font-bold shadow-md active:scale-95 transition-transform w-full sm:w-auto bg-brand-primary text-white hover:opacity-90"
+              onClick={() => setSelectedTiming(nextScheduledTiming.id)}
+            >
+              Start this report
+            </Button>
           </div>
-          <Button 
-            variant="secondary" 
-            className="h-8 text-[11px] px-4 w-full sm:w-auto"
-            onClick={() => setSelectedTiming(nextScheduledTiming.id)}
-          >
-            Start this report
-          </Button>
         </div>
       )}
 
-      <div className="mb-6">
+      <div className="mb-6 px-1">
         <h1 className="text-xl md:text-2xl font-bold text-content-primary">Submit Daily Report</h1>
         <p className="text-content-secondary mt-1">Log your field activities and performance data.</p>
       </div>
