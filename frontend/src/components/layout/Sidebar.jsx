@@ -35,12 +35,25 @@ const Sidebar = () => {
   return (
     <aside className={cn(
       "fixed left-0 top-0 z-40 h-screen bg-dark-bg/80 backdrop-blur-xl border-r border-dark-border transition-all duration-300",
-      sidebarOpen ? "w-[240px]" : "w-[72px]"
+      sidebarOpen ? "translate-x-0 w-[240px]" : "-translate-x-full lg:translate-x-0 lg:w-[72px]"
     )}>
-      <div className="flex h-14 items-center justify-center border-b border-dark-border">
-        <h1 className="text-lg font-bold text-content-primary tracking-tight">
-          {sidebarOpen ? <span className="bg-clip-text text-transparent bg-gradient-to-r from-brand-primary to-brand-secondary">Sale Point</span> : 'SP'}
+      <div className="flex h-14 items-center justify-center border-b border-dark-border relative px-4">
+        <h1 className="text-lg font-bold text-content-primary tracking-tight truncate">
+          {sidebarOpen ? (
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-brand-primary to-brand-secondary">Sale Point</span>
+          ) : (
+            <span className="bg-brand-primary">SP</span>
+          )}
         </h1>
+        {/* Close button for mobile */}
+        {sidebarOpen && (
+          <button 
+            onClick={() => useUiStore.getState().toggleSidebar()}
+            className="absolute right-2 lg:hidden p-1.5 rounded-lg hover:bg-dark-surface text-content-muted"
+          >
+            <LogOut className="w-4 h-4 rotate-180" />
+          </button>
+        )}
       </div>
 
       <nav className="p-3 space-y-1.5 h-[calc(100vh-118px)] overflow-y-auto">
@@ -49,15 +62,19 @@ const Sidebar = () => {
             key={link.name}
             to={link.path}
             className={({ isActive }) => cn(
-              "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-content-secondary transition-all group",
+              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-content-secondary transition-all group",
               isActive ? "bg-brand-primary/10 text-brand-primary relative" : "hover:bg-dark-surface hover:text-content-primary"
             )}
           >
             {({ isActive }) => (
               <>
-                {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-7 bg-brand-primary rounded-r-md"></div>}
-                <link.icon className={cn("w-4 h-4", isActive ? "text-brand-primary" : "text-content-muted group-hover:text-content-primary")} />
-                {sidebarOpen && <span className="font-medium whitespace-nowrap">{link.name}</span>}
+                <link.icon className={cn("w-4.5 h-4.5", isActive ? "text-brand-primary" : "text-content-muted group-hover:text-content-primary")} />
+                <span className={cn(
+                  "font-medium whitespace-nowrap transition-all duration-300",
+                  !sidebarOpen && "lg:opacity-0 lg:invisible"
+                )}>
+                  {link.name}
+                </span>
               </>
             )}
           </NavLink>
