@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getBusinesses, createBusiness, updateBusiness, deleteBusiness,
+  getBusinesses, createBusiness, updateBusiness, deleteBusiness, applyDefaultsToExisting,
   getTimings, createTiming, updateTiming, deleteTiming,
   getActivityTypes, createActivityType, deleteActivityType,
   getFields, createField, updateField, deleteField
@@ -22,6 +22,7 @@ router.get('/:id/activity-types/:typeId/fields', getFields);
 // Modifying routes (restricted to SUPER_ADMIN)
 router.post('/', authorize('SUPER_ADMIN'), businessValidation, validate, createBusiness);
 router.put('/:id', authorize('SUPER_ADMIN'), businessValidation, validate, updateBusiness);
+router.post('/:id/apply-defaults', authorize('SUPER_ADMIN'), applyDefaultsToExisting);
 router.delete('/:id', authorize('SUPER_ADMIN'), deleteBusiness);
 
 router.post('/:id/timings', authorize('SUPER_ADMIN'), timingValidation, validate, createTiming);

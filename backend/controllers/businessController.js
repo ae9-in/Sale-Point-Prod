@@ -9,14 +9,70 @@ const getBusinesses = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const applyDefaultTemplates = async (businessId) => {
+  const templates = [
+    {
+      name: 'Callings',
+      fields: [
+        { name: 'Number Of Calls Made', type: 'number' },
+        { name: 'Number Of Answered Calls', type: 'number' },
+        { name: 'Number Of Conversions', type: 'number' },
+        { name: 'Number Of Positive Leads', type: 'number' },
+        { name: 'Number Of Negative Leads', type: 'number' },
+        { name: 'Description', type: 'textarea' }
+      ]
+    },
+    {
+      name: 'Fields',
+      fields: [
+        { name: 'Number Of Field Visits', type: 'number' },
+        { name: 'Number Of Conversions', type: 'number' },
+        { name: 'Number Of Positive Leads', type: 'number' },
+        { name: 'Number Of Negative Leads', type: 'number' },
+        { name: 'Description', type: 'textarea' }
+      ]
+    }
+  ];
+
+  for (const template of templates) {
+    const activityRes = await query(
+      'INSERT INTO activity_types (business_id, name) VALUES ($1, $2) RETURNING id',
+      [businessId, template.name]
+    );
+    const typeId = activityRes.rows[0].id;
+
+    for (let i = 0; i < template.fields.length; i++) {
+      const field = template.fields[i];
+      await query(
+        'INSERT INTO form_fields (activity_type_id, field_name, field_type, required, display_order) VALUES ($1, $2, $3, $4, $5)',
+        [typeId, field.name, field.type, false, i]
+      );
+    }
+  }
+};
+
 const createBusiness = async (req, res, next) => {
   try {
-    const { businessName, description, active } = req.body;
+    const { businessName, description, active, useDefaults } = req.body;
     const result = await query(
       'INSERT INTO businesses (business_name, description, active) VALUES ($1, $2, $3) RETURNING *',
       [businessName, description, active ?? true]
     );
-    return successResponse(res, result.rows[0], 'Business created', 201);
+    const business = result.rows[0];
+
+    if (useDefaults !== false) {
+      await applyDefaultTemplates(business.id);
+    }
+
+    return successResponse(res, business, 'Business created with default templates', 201);
+  } catch (err) { next(err); }
+};
+
+const applyDefaultsToExisting = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await applyDefaultTemplates(id);
+    return successResponse(res, null, 'Default templates applied successfully');
   } catch (err) { next(err); }
 };
 
@@ -153,7 +209,7 @@ const deleteField = async (req, res, next) => {
 };
 
 module.exports = {
-  getBusinesses, createBusiness, updateBusiness, deleteBusiness,
+  getBusinesses, createBusiness, updateBusiness, deleteBusiness, applyDefaultsToExisting,
   getTimings, createTiming, updateTiming, deleteTiming,
   getActivityTypes, createActivityType, deleteActivityType,
   getFields, createField, updateField, deleteField

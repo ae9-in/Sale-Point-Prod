@@ -32,6 +32,7 @@ const Businesses = () => {
   const [assignEmployeeId, setAssignEmployeeId] = useState('');
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [templateLoading, setTemplateLoading] = useState(false);
 
   const selectedBusiness = useMemo(
     () => businesses.find((business) => business.id === selectedBusinessId),
@@ -134,6 +135,20 @@ const Businesses = () => {
       fetchBusinessDetail(selectedBusinessId);
     } catch (err) {
       toast.error('Failed to remove employee');
+    }
+  };
+
+  const handleApplyDefaults = async () => {
+    if (!selectedBusinessId || !confirm('This will add default reporting categories (Callings, Fields) and their fields to this business. Continue?')) return;
+    try {
+      setTemplateLoading(true);
+      await axios.post(`/businesses/${selectedBusinessId}/apply-defaults`);
+      toast.success('Default categories applied');
+      fetchBusinessDetail(selectedBusinessId);
+    } catch (err) {
+      toast.error('Failed to apply default categories');
+    } finally {
+      setTemplateLoading(false);
     }
   };
 
@@ -344,9 +359,14 @@ const Businesses = () => {
                   <h2 className="mt-1 text-lg font-bold text-content-primary">{selectedBusiness.business_name}</h2>
                   <p className="mt-1 text-content-secondary">{selectedBusiness.description || 'Manage employees, timings, fields, and analytics for this business.'}</p>
                 </div>
-                <Button variant="danger" onClick={() => handleDeleteBusiness(selectedBusiness.id)}>
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={handleApplyDefaults} isLoading={templateLoading}>
+                    <Plus className="mr-1 h-4 w-4" /> Defaults
+                  </Button>
+                  <Button variant="danger" onClick={() => handleDeleteBusiness(selectedBusiness.id)}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  </Button>
+                </div>
               </div>
             </div>
 
