@@ -4,7 +4,8 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Spinner from '../ui/Spinner';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../ui/Table';
-import { Download, Filter } from 'lucide-react';
+import { Download, Filter, TrendingUp, BarChart3, Clock, UserCheck } from 'lucide-react';
+import { cn } from '../../utils/cn';
 
 const currentYear = new Date().getFullYear();
 
@@ -36,7 +37,7 @@ const buildParams = (filters) => {
 };
 
 const toCsv = (rows) => {
-  const headers = ['Date', 'Employee', 'Business', 'Timing', 'Activity', 'Score', 'Answers'];
+  const headers = ['Date', 'Employee', 'Business', 'Timing', 'Activity', 'Positive Leads', 'Answers'];
   const body = rows.map((row) => [
     row.report_date ? new Date(row.report_date).toLocaleDateString() : '',
     row.employee_name,
@@ -53,7 +54,7 @@ const toCsv = (rows) => {
 };
 
 const PerformanceAnalytics = ({
-  title = 'Performance Analysis',
+  title = 'Performance Intelligence',
   employees = [],
   businesses = [],
   initialEmployeeId = '',
@@ -61,7 +62,7 @@ const PerformanceAnalytics = ({
   lockEmployee = false,
   lockBusiness = false,
   showFilters = true,
-  summaryLabel = 'Overall Summary'
+  summaryLabel = 'Performance Ledger'
 }) => {
   const [filters, setFilters] = useState({
     employeeId: initialEmployeeId,
@@ -103,7 +104,7 @@ const PerformanceAnalytics = ({
 
   const totals = useMemo(() => ({
     reports: data.summary.reduce((sum, row) => sum + Number(row.report_count || 0), 0),
-    score: data.summary.reduce((sum, row) => sum + Number(row.numeric_total || 0), 0)
+    positiveLeads: data.summary.reduce((sum, row) => sum + Number(row.numeric_total || 0), 0)
   }), [data.summary]);
 
   const updateFilter = (name, value) => {
@@ -115,80 +116,81 @@ const PerformanceAnalytics = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'performance-report.csv';
+    link.download = 'performance-intelligence.csv';
     link.click();
     URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between px-1">
         <div>
-          <h2 className="text-lg font-semibold text-content-primary">{title}</h2>
-          <p className="text-sm text-content-secondary">
-            {totals.reports} reports · {totals.score.toLocaleString()} total score
-          </p>
+          <h2 className="text-xl font-black text-content-primary tracking-tight">{title}</h2>
+          <div className="flex items-center gap-3 mt-1">
+            <span className="text-[10px] font-black uppercase tracking-widest bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded">
+              {totals.reports} Submissions
+            </span>
+            <span className="text-[10px] font-black uppercase tracking-widest bg-brand-secondary/10 text-brand-secondary px-2 py-0.5 rounded">
+              {totals.positiveLeads.toLocaleString()} Positive Leads
+            </span>
+          </div>
         </div>
-        <Button variant="secondary" onClick={exportCsv} disabled={data.details.length === 0}>
-          <Download className="mr-2 h-4 w-4" />
-          Export
+        <Button variant="secondary" className="h-9 text-[11px] font-black uppercase tracking-wider" onClick={exportCsv} disabled={data.details.length === 0}>
+          <Download className="mr-2 h-3.5 w-3.5" />
+          Export Ledger
         </Button>
       </div>
 
       {showFilters && (
-        <div className="card motion-card motion-sheen p-4">
-          <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-content-primary">
-            <Filter className="h-4 w-4 text-brand-primary" />
-            Filters
-          </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <div className="card border-dark-border/40 bg-dark-surface/40 p-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {!lockEmployee && (
               <div>
-                <label className="mb-1 block text-sm font-medium text-content-secondary">Employee</label>
-                <select className="input-field" value={filters.employeeId} onChange={(e) => updateFilter('employeeId', e.target.value)}>
-                  <option value="">All employees</option>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Team Member</label>
+                <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.employeeId} onChange={(e) => updateFilter('employeeId', e.target.value)}>
+                  <option value="">Full Team</option>
                   {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
                 </select>
               </div>
             )}
             {!lockBusiness && (
               <div>
-                <label className="mb-1 block text-sm font-medium text-content-secondary">Business</label>
-                <select className="input-field" value={filters.businessId} onChange={(e) => updateFilter('businessId', e.target.value)}>
-                  <option value="">All businesses</option>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Market Unit</label>
+                <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.businessId} onChange={(e) => updateFilter('businessId', e.target.value)}>
+                  <option value="">All Markets</option>
                   {businesses.map((business) => <option key={business.id} value={business.id}>{business.business_name}</option>)}
                 </select>
               </div>
             )}
             <div>
-              <label className="mb-1 block text-sm font-medium text-content-secondary">Period</label>
-              <select className="input-field" value={filters.period} onChange={(e) => updateFilter('period', e.target.value)}>
-                <option value="day">Day</option>
-                <option value="week">Week</option>
-                <option value="month">Month</option>
-                <option value="year">Year</option>
-                <option value="custom">Custom</option>
-                <option value="all">All time</option>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Analysis Period</label>
+              <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.period} onChange={(e) => updateFilter('period', e.target.value)}>
+                <option value="day">Daily View</option>
+                <option value="week">Weekly View</option>
+                <option value="month">Monthly View</option>
+                <option value="year">Annual View</option>
+                <option value="custom">Custom Range</option>
+                <option value="all">Historical</option>
               </select>
             </div>
-            {filters.period === 'day' && <Input label="Date" type="date" value={filters.date} onChange={(e) => updateFilter('date', e.target.value)} />}
-            {filters.period === 'week' && <Input label="Week" type="week" value={filters.week} onChange={(e) => updateFilter('week', e.target.value)} />}
-            {filters.period === 'month' && <Input label="Month" type="month" value={filters.month} onChange={(e) => updateFilter('month', e.target.value)} />}
-            {filters.period === 'year' && <Input label="Year" type="number" value={filters.year} onChange={(e) => updateFilter('year', e.target.value)} />}
+            {filters.period === 'day' && <Input label="Target Date" type="date" value={filters.date} onChange={(e) => updateFilter('date', e.target.value)} />}
+            {filters.period === 'week' && <Input label="Target Week" type="week" value={filters.week} onChange={(e) => updateFilter('week', e.target.value)} />}
+            {filters.period === 'month' && <Input label="Target Month" type="month" value={filters.month} onChange={(e) => updateFilter('month', e.target.value)} />}
+            {filters.period === 'year' && <Input label="Target Year" type="number" value={filters.year} onChange={(e) => updateFilter('year', e.target.value)} />}
             {filters.period === 'custom' && (
               <>
-                <Input label="From" type="date" value={filters.fromDate} onChange={(e) => updateFilter('fromDate', e.target.value)} />
-                <Input label="To" type="date" value={filters.toDate} onChange={(e) => updateFilter('toDate', e.target.value)} />
+                <Input label="Commence" type="date" value={filters.fromDate} onChange={(e) => updateFilter('fromDate', e.target.value)} />
+                <Input label="Conclude" type="date" value={filters.toDate} onChange={(e) => updateFilter('toDate', e.target.value)} />
               </>
             )}
             <div>
-              <label className="mb-1 block text-sm font-medium text-content-secondary">Sort</label>
-              <select className="input-field" value={filters.sortBy} onChange={(e) => updateFilter('sortBy', e.target.value)}>
-                <option value="report_date">Latest</option>
-                <option value="employee">Employee</option>
-                <option value="business">Business</option>
-                <option value="reports">Reports</option>
-                <option value="score">Score</option>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Rank By</label>
+              <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.sortBy} onChange={(e) => updateFilter('sortBy', e.target.value)}>
+                <option value="report_date">Chronological</option>
+                <option value="employee">Alphabetical (User)</option>
+                <option value="business">Alphabetical (Biz)</option>
+                <option value="reports">Volume (Reports)</option>
+                <option value="score">Performance (Leads)</option>
               </select>
             </div>
           </div>
@@ -196,89 +198,93 @@ const PerformanceAnalytics = ({
       )}
 
       {loading ? (
-        <div className="flex h-72 w-full flex-col items-center justify-center space-y-4 rounded-xl border border-dark-border bg-dark-surface/40">
+        <div className="flex h-72 w-full flex-col items-center justify-center space-y-4 rounded-xl border border-dark-border bg-dark-surface/20">
           <Spinner size="lg" />
-          <p className="text-sm font-medium text-content-secondary animate-pulse">Analyzing performance data...</p>
+          <p className="text-[11px] font-bold uppercase tracking-widest text-content-muted animate-pulse">Synthesizing Analytics...</p>
         </div>
       ) : (
         <>
-          <div className="card motion-card motion-sheen overflow-hidden">
-            <div className="border-b border-dark-border px-5 py-4">
-              <h3 className="font-semibold text-content-primary">{summaryLabel}</h3>
+          <div className="card overflow-hidden px-0 py-0 border-brand-primary/10">
+            <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex items-center gap-2">
+              <TrendingUp size={14} className="text-brand-primary" />
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-content-primary">{summaryLabel}</h3>
             </div>
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>Employee</Th>
-                  <Th>Business</Th>
-                  <Th>Reports</Th>
-                  <Th>Total Score</Th>
-                  <Th>Last Report</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {data.summary.map((row) => (
-                  <Tr key={`${row.employee_id}-${row.business_id}`}>
-                    <Td className="font-semibold text-content-primary">{row.employee_name}</Td>
-                    <Td>{row.business_name}</Td>
-                    <Td>{row.report_count}</Td>
-                    <Td className="font-mono text-brand-primary">{Number(row.numeric_total || 0).toLocaleString()}</Td>
-                    <Td>{row.last_report_date ? new Date(row.last_report_date).toLocaleDateString() : '-'}</Td>
+            <div className="overflow-x-auto">
+              <Table>
+                <Thead>
+                  <Tr className="bg-dark-bg/20">
+                    <Th className="text-[10px] uppercase tracking-wider">Member</Th>
+                    <Th className="text-[10px] uppercase tracking-wider">Asset/Market</Th>
+                    <Th className="text-[10px] uppercase tracking-wider text-center">Volume</Th>
+                    <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Pos. Leads</Th>
+                    <Th className="text-[10px] uppercase tracking-wider text-right">Latest Log</Th>
                   </Tr>
-                ))}
-                {data.summary.length === 0 && (
-                  <Tr><Td colSpan={5} className="py-8 text-center text-content-muted">No performance data found.</Td></Tr>
-                )}
-              </Tbody>
-            </Table>
+                </Thead>
+                <Tbody>
+                  {data.summary.map((row) => (
+                    <Tr key={`${row.employee_id}-${row.business_id}`} className="hover:bg-brand-primary/[0.03] transition-colors">
+                      <Td><p className="font-bold text-content-primary text-xs">{row.employee_name}</p></Td>
+                      <Td><p className="text-xs text-content-secondary">{row.business_name}</p></Td>
+                      <Td className="text-center font-mono text-xs">{row.report_count}</Td>
+                      <Td className="text-center"><p className="font-black text-brand-primary text-sm">{Number(row.numeric_total || 0).toLocaleString()}</p></Td>
+                      <Td className="text-right font-mono text-[10px] text-content-muted">
+                        {row.last_report_date ? new Date(row.last_report_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}
+                      </Td>
+                    </Tr>
+                  ))}
+                  {data.summary.length === 0 && (
+                    <Tr><Td colSpan={5} className="py-12 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">No Intelligence Data Available</Td></Tr>
+                  )}
+                </Tbody>
+              </Table>
+            </div>
           </div>
 
-          <div className="card motion-card motion-sheen overflow-hidden">
-            <div className="border-b border-dark-border px-5 py-4">
-              <h3 className="font-semibold text-content-primary">Report Details</h3>
+          <div className="card overflow-hidden px-0 py-0">
+            <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex items-center gap-2">
+              <BarChart3 size={14} className="text-brand-secondary" />
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-content-primary">Detailed Activity Log</h3>
             </div>
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>Date</Th>
-                  <Th>Employee</Th>
-                  <Th>Business</Th>
-                  <Th>Timing</Th>
-                  <Th>Activity</Th>
-                  <Th>Score</Th>
-                  <Th>Filled Fields</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {data.details.map((row) => (
-                  <Tr key={row.id}>
-                    <Td>{new Date(row.report_date).toLocaleDateString()}</Td>
-                    <Td className="font-medium text-content-primary">{row.employee_name}</Td>
-                    <Td>{row.business_name}</Td>
-                    <Td>{row.timing_name}</Td>
-                    <Td>{row.activity_name}</Td>
-                    <Td className="font-mono text-brand-primary">{Number(row.numeric_total || 0).toLocaleString()}</Td>
-                    <Td>
-                      <div className="flex max-w-xl flex-wrap gap-1.5">
-                        {(row.answers || []).slice(0, 6).map((answer, index) => (
-                          <span key={`${row.id}-${index}`} className="rounded-full border border-dark-border bg-dark-bg px-2 py-0.5 text-[11px] text-content-secondary">
-                            <span className="font-medium text-content-primary">{answer.fieldName}:</span> {String(answer.value || 'N/A')}
-                          </span>
-                        ))}
-                        {(row.answers || []).length > 6 && (
-                          <span className="rounded-full bg-brand-primary/10 px-2 py-0.5 text-[11px] font-medium text-brand-primary">
-                            +{row.answers.length - 6} more
-                          </span>
-                        )}
-                      </div>
-                    </Td>
+            <div className="overflow-x-auto">
+              <Table>
+                <Thead>
+                  <Tr className="bg-dark-bg/20">
+                    <Th className="text-[10px] uppercase tracking-wider">Timeline</Th>
+                    <Th className="text-[10px] uppercase tracking-wider">Member</Th>
+                    <Th className="text-[10px] uppercase tracking-wider text-center">Leads</Th>
+                    <Th className="text-[10px] uppercase tracking-wider">Insights</Th>
                   </Tr>
-                ))}
-                {data.details.length === 0 && (
-                  <Tr><Td colSpan={7} className="py-8 text-center text-content-muted">No report entries match the selected filters.</Td></Tr>
-                )}
-              </Tbody>
-            </Table>
+                </Thead>
+                <Tbody>
+                  {data.details.map((row) => (
+                    <Tr key={row.id} className="hover:bg-dark-bg/40">
+                      <Td className="whitespace-nowrap font-mono text-[10px] text-content-muted">
+                        {new Date(row.report_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} <br/>
+                        <span className="text-[9px] opacity-60 uppercase">{row.timing_name}</span>
+                      </Td>
+                      <Td>
+                        <p className="font-bold text-content-primary text-xs">{row.employee_name}</p>
+                        <p className="text-[9px] text-content-muted uppercase tracking-tight truncate max-w-[120px]">{row.business_name}</p>
+                      </Td>
+                      <Td className="text-center"><span className="font-black text-brand-primary text-xs">{row.numeric_total}</span></Td>
+                      <Td>
+                        <div className="flex flex-wrap gap-1">
+                          {(row.answers || []).slice(0, 4).map((answer, index) => (
+                            <div key={`${row.id}-${index}`} className="bg-dark-bg border border-dark-border/60 rounded px-1.5 py-0.5 text-[9px]">
+                              <span className="text-content-muted uppercase font-bold mr-1">{answer.fieldName}:</span>
+                              <span className="text-content-primary font-medium">{answer.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </Td>
+                    </Tr>
+                  ))}
+                  {data.details.length === 0 && (
+                    <Tr><Td colSpan={4} className="py-12 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">No Activity Records Found</Td></Tr>
+                  )}
+                </Tbody>
+              </Table>
+            </div>
           </div>
         </>
       )}

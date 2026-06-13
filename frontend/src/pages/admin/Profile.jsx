@@ -8,7 +8,7 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '../../components/ui/Table';
 import toast from 'react-hot-toast';
 import { 
   Check, KeyRound, MessageSquare, Plus, Trash2, UserCog, X,
-  User, Mail, Phone, Shield, Lock, Users, AlertCircle, Clock
+  User, Mail, Phone, Shield, Lock, Users, AlertCircle, Clock, CheckCircle2
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
@@ -23,7 +23,7 @@ const AdminProfile = () => {
   const [employees, setEmployees] = useState([]);
   const [pendingUsers, setPendingUsers] = useState([]);
   const [doubts, setDoubts] = useState([]);
-  const [adminPasswords, setAdminPasswords] = useState({}); // For user management pwd reset
+  const [adminPasswords, setAdminPasswords] = useState({});
   const [responses, setResponses] = useState({});
   
   const [loading, setLoading] = useState(false);
@@ -150,7 +150,7 @@ const AdminProfile = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 animate-fade-in pb-10">
+    <div className="max-w-6xl mx-auto space-y-6 animate-fade-in pb-10 px-1 lg:px-0">
       {/* Branded Header */}
       <div className="flex items-center gap-4 px-1">
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary flex items-center justify-center text-2xl text-white font-bold shadow-xl shadow-brand-primary/20">
@@ -165,7 +165,7 @@ const AdminProfile = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Admin Profile & User Creation */}
+        {/* Left Column: Admin Profile & Security */}
         <div className="lg:col-span-4 space-y-6">
           <div className="card">
             <h3 className="text-sm font-bold text-content-primary mb-4 flex items-center gap-2">
@@ -173,9 +173,12 @@ const AdminProfile = () => {
             </h3>
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <Input label="Name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-              <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+              <div>
+                <Input label="Email Address" type="email" value={formData.email} disabled className="opacity-70 cursor-not-allowed" />
+                <p className="text-[10px] text-content-muted mt-1 italic">Contact system admin to change primary email identity.</p>
+              </div>
               <Input label="Phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
-              <Button type="submit" isLoading={loading} className="w-full">Update</Button>
+              <Button type="submit" isLoading={loading} className="w-full">Update Details</Button>
             </form>
           </div>
 
@@ -222,13 +225,16 @@ const AdminProfile = () => {
             </div>
           </div>
 
-          {/* Pending Approvals */}
-          {pendingUsers.length > 0 && (
-            <div className="card border-brand-warning/20 overflow-hidden px-0 py-0">
-              <div className="px-5 py-3 border-b border-dark-border bg-brand-warning/5 flex items-center gap-2">
+          {/* Dedicated Approvals Section */}
+          <div id="approvals" className="card border-brand-warning/20 overflow-hidden px-0 py-0 shadow-lg shadow-brand-warning/5">
+            <div className="px-5 py-3 border-b border-dark-border bg-brand-warning/5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
                 <AlertCircle size={14} className="text-brand-warning" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-content-primary">Pending Approvals</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-content-primary">Account Approvals</h3>
               </div>
+              <span className="text-[10px] font-black bg-brand-warning/20 text-brand-warning px-2 py-0.5 rounded-full">{pendingUsers.length}</span>
+            </div>
+            {pendingUsers.length > 0 ? (
               <Table>
                 <Tbody>
                   {pendingUsers.map(u => (
@@ -244,8 +250,13 @@ const AdminProfile = () => {
                   ))}
                 </Tbody>
               </Table>
-            </div>
-          )}
+            ) : (
+              <div className="p-8 text-center bg-dark-bg/20">
+                <CheckCircle2 size={24} className="mx-auto text-brand-success/30 mb-2" />
+                <p className="text-[11px] text-content-muted font-medium">All registration requests cleared</p>
+              </div>
+            )}
+          </div>
 
           {/* User Management */}
           <div className="card overflow-hidden px-0 py-0">

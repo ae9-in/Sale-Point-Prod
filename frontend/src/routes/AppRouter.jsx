@@ -30,22 +30,22 @@ const EmployeeProfile = lazy(() => import('../pages/employee/Profile'));
 import { useAuthStore } from '../store/authStore';
 
 const PageLoader = () => (
-  <div className="flex h-screen w-full flex-col items-center justify-center bg-dark-bg space-y-4">
-    <div className="loader-spinner"></div>
-    <span className="text-sm font-medium text-content-secondary animate-pulse">Loading Sale Point...</span>
+  <div className="fixed inset-0 flex flex-col items-center justify-center bg-dark-bg z-[9999]">
+    <div className="loader-spinner mb-4"></div>
+    <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-brand-primary animate-pulse">
+      Sale Point
+    </span>
   </div>
 );
 
 const AppRouter = () => {
   const { _hasHydrated } = useAuthStore();
 
-  if (!_hasHydrated) {
-    return <PageLoader />;
-  }
+  if (!_hasHydrated) return <PageLoader />;
 
   return (
     <Suspense fallback={<PageLoader />}>
-      <Routes>
+...
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
