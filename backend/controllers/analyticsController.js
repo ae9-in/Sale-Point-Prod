@@ -64,12 +64,12 @@ const getOverview = async (req, res, next) => {
 const getLeaderboard = async (req, res, next) => {
   try {
     const sql = `
-      SELECT u.id, u.name, SUM(CAST(ra.value AS INTEGER)) as score
+      SELECT u.id, u.name, SUM(CASE WHEN ff.field_name ILIKE '%positive leads%' AND ra.value ~ '^[0-9]+$' THEN ra.value::integer ELSE 0 END) as score
       FROM users u
       JOIN employee_reports er ON u.id = er.employee_id
       JOIN report_answers ra ON er.id = ra.report_id
       JOIN form_fields ff ON ra.field_id = ff.id
-      WHERE ff.field_type = 'number' AND ra.value ~ '^[0-9]+$'
+      WHERE ff.field_type = 'number'
       GROUP BY u.id, u.name
       ORDER BY score DESC
       LIMIT 10
@@ -133,7 +133,7 @@ const getPerformance = async (req, res, next) => {
         b.id AS business_id,
         b.business_name,
         COUNT(DISTINCT er.id)::int AS report_count,
-        COALESCE(SUM(CASE WHEN ff.field_type = 'number' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS numeric_total,
+        COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%positive leads%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS numeric_total,
         MIN(er.report_date) AS first_report_date,
         MAX(er.report_date) AS last_report_date
       FROM employee_reports er
@@ -157,7 +157,7 @@ const getPerformance = async (req, res, next) => {
         b.business_name,
         bt.timing_name,
         at.name AS activity_name,
-        COALESCE(SUM(CASE WHEN ff.field_type = 'number' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS numeric_total,
+        COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%positive leads%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS numeric_total,
         COALESCE(
           json_agg(
             json_build_object(

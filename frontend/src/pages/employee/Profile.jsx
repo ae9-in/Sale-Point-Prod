@@ -130,7 +130,10 @@ const EmployeeProfile = () => {
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input label="Full Name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-                <Input label="Email Address" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                <div>
+                  <Input label="Email Address" type="email" value={formData.email} disabled className="opacity-70 cursor-not-allowed" />
+                  <p className="text-[10px] text-content-muted mt-1 italic">Contact admin to change primary email identity.</p>
+                </div>
               </div>
               <Input label="Phone Number" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
               <Button type="submit" isLoading={loading} className="w-full sm:w-auto">Update Profile</Button>
