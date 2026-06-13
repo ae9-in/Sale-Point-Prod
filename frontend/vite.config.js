@@ -7,10 +7,16 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['lucide-react', 'recharts', 'react-hot-toast'],
-          'vendor-utils': ['axios', 'zustand', 'zod', 'react-hook-form']
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('lucide-react') || id.includes('recharts') || id.includes('react-hot-toast')) {
+              return 'vendor-ui';
+            }
+            return 'vendor';
+          }
         }
       }
     },
