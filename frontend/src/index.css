@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  [data-theme='dark'] {
+    color-scheme: dark;
+    --color-bg: 15 17 23;
+    --color-surface: 26 29 39;
+    --color-border: 42 45 58;
+    --color-content-primary: 241 245 249;
+    --color-content-secondary: 148 163 184;
+    --color-content-muted: 100 116 139;
+    --color-brand-primary: 108 99 255;
+    --color-brand-primary-light: 139 92 246;
+    --color-brand-secondary: 16 185 129;
+    --color-brand-success: 16 185 129;
+    --color-brand-warning: 245 158 11;
+    --color-brand-danger: 239 68 68;
+  }
+
+  [data-theme='light'] {
+    color-scheme: light;
+    --color-bg: 244 247 251;
+    --color-surface: 255 255 255;
+    --color-border: 213 224 238;
+    --color-content-primary: 15 23 42;
+    --color-content-secondary: 51 65 85;
+    --color-content-muted: 100 116 139;
+    --color-brand-primary: 30 92 184;
+    --color-brand-primary-light: 37 99 235;
+    --color-brand-secondary: 8 145 178;
+    --color-brand-success: 4 120 87;
+    --color-brand-warning: 180 83 9;
+    --color-brand-danger: 190 18 60;
+  }
+
+  * {
+    @apply border-dark-border;
+  }
+
+  body {
+    @apply bg-dark-bg text-[13px] text-content-primary antialiased transition-colors duration-300;
+    font-family: 'Inter', sans-serif;
+  }
+
+  [data-theme='light'] body {
+    background:
+      radial-gradient(circle at top left, rgba(30, 92, 184, 0.08), transparent 32rem),
+      linear-gradient(180deg, rgb(244 247 251), rgb(238 243 249));
+  }
+
+  h1 {
+    @apply tracking-tight text-xl;
+  }
+
+  h2 {
+    @apply tracking-tight;
+  }
+
+  svg {
+    @apply shrink-0;
+  }
+}
+
+@layer components {
+  /* UI Rules from specs */
+  .card {
+    @apply rounded-xl border border-dark-border bg-dark-surface/80 backdrop-blur-md shadow-sm shadow-slate-900/5 transition-colors;
+  }
+
+  [data-theme='light'] .card {
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.045);
+  }
+  
+  .input-field {
+    @apply bg-dark-bg border border-dark-border focus:border-brand-primary rounded-lg px-3 py-2 text-sm text-content-primary outline-none transition-colors w-full;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-brand-primary to-brand-primaryLight hover:opacity-90 text-white font-medium py-2 px-4 rounded-lg transition-opacity flex items-center justify-center;
+  }
+  
+  .btn-secondary {
+    @apply bg-transparent border border-dark-border hover:bg-dark-border text-content-primary font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center;
+  }
+
+  .stat-card-value {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .motion-card {
+    @apply transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-primary/40;
+  }
+
+  .motion-sheen {
+    @apply relative overflow-hidden;
+  }
+
+  .motion-sheen::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-120%);
+    background: linear-gradient(90deg, transparent, rgb(var(--color-brand-primary) / 0.08), transparent);
+    transition: transform 700ms ease;
+    pointer-events: none;
+  }
+
+  .motion-sheen:hover::after {
+    transform: translateX(120%);
+  }
+
+  .progress-track {
+    @apply relative h-2 overflow-hidden rounded-full border border-dark-border bg-dark-bg;
+  }
+
+  .progress-fill {
+    @apply relative h-full rounded-full transition-all duration-700 ease-out;
+  }
+
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.28), transparent);
+    animation: progress-sheen 1.8s ease-in-out infinite;
+  }
+
+  @keyframes progress-sheen {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .loader-spinner {
+    @apply h-10 w-10 rounded-full border-[3px] border-brand-primary/10 border-t-brand-primary animate-spin;
+  }
+}

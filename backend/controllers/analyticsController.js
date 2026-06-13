@@ -1,0 +1,198 @@
+const { query } = require('../config/db');
+const { successResponse } = require('../utils/apiResponse');
+
+const buildDateWhere = (params, filters = {}) => {
+  const conditions = [];
+  let paramIndex = params.length + 1;
+  const { date, fromDate, toDate, month, year, week } = filters;
+
+  if (date) {
+    conditions.push(`er.report_date = $${paramIndex++}`);
+    params.push(date);
+  }
+  if (fromDate) {
+    conditions.push(`er.report_date >= $${paramIndex++}`);
+    params.push(fromDate);
+  }
+  if (toDate) {
+    conditions.push(`er.report_date <= $${paramIndex++}`);
+    params.push(toDate);
+  }
+  if (month) {
+    conditions.push(`EXTRACT(MONTH FROM er.report_date) = $${paramIndex++}`);
+    params.push(Number(month));
+  }
+  if (year) {
+    conditions.push(`EXTRACT(YEAR FROM er.report_date) = $${paramIndex++}`);
+    params.push(Number(year));
+  }
+  if (week) {
+    conditions.push(`EXTRACT(WEEK FROM er.report_date) = $${paramIndex++}`);
+    params.push(Number(week));
+  }
+
+  return { conditions, paramIndex };
+};
+
+const getOverview = async (req, res, next) => {
+  try {
+    const empRes = await query("SELECT COUNT(*) FROM users WHERE role = 'EMPLOYEE'");
+    const bizRes = await query('SELECT COUNT(*) FROM businesses');
+    const pendRes = await query("SELECT COUNT(*) FROM users WHERE status = 'PENDING'");
+    const repRes = await query('SELECT COUNT(*) FROM employee_reports WHERE report_date = CURRENT_DATE');
+    
+    const callsRes = await query(`
+      SELECT SUM(CAST(ra.value AS INTEGER)) as total_calls
+      FROM report_answers ra
+      JOIN form_fields ff ON ra.field_id = ff.id
+      JOIN employee_reports er ON ra.report_id = er.id
+      WHERE ff.field_type = 'number' AND ff.field_name ILIKE '%call%'
+      AND er.report_date = CURRENT_DATE
+      AND ra.value ~ '^[0-9]+$'
+    `);
+
+    return successResponse(res, {
+      totalEmployees: parseInt(empRes.rows[0].count, 10),
+      totalBusinesses: parseInt(bizRes.rows[0].count, 10),
+      pendingApprovals: parseInt(pendRes.rows[0].count, 10),
+      reportsToday: parseInt(repRes.rows[0].count, 10),
+      totalCallsToday: parseInt(callsRes.rows[0].total_calls || 0, 10)
+    }, 'Overview fetched');
+  } catch (err) { next(err); }
+};
+
+const getLeaderboard = async (req, res, next) => {
+  try {
+    const sql = `
+      SELECT u.id, u.name, SUM(CAST(ra.value AS INTEGER)) as score
+      FROM users u
+      JOIN employee_reports er ON u.id = er.employee_id
+      JOIN report_answers ra ON er.id = ra.report_id
+      JOIN form_fields ff ON ra.field_id = ff.id
+      WHERE ff.field_type = 'number' AND ra.value ~ '^[0-9]+$'
+      GROUP BY u.id, u.name
+      ORDER BY score DESC
+      LIMIT 10
+    `;
+    const result = await query(sql);
+    return successResponse(res, result.rows, 'Leaderboard fetched');
+  } catch (err) { next(err); }
+};
+
+const getPerformance = async (req, res, next) => {
+  try {
+    const {
+      employeeId,
+      businessId,
+      date,
+      fromDate,
+      toDate,
+      month,
+      year,
+      week,
+      sortBy = 'report_date',
+      sortDir = 'desc'
+    } = req.query;
+
+    const params = [];
+    const conditions = [];
+    let paramIndex = 1;
+
+    if (req.user.role === 'EMPLOYEE') {
+      conditions.push(`er.employee_id = $${paramIndex++}`);
+      params.push(req.user.id);
+    } else if (employeeId) {
+      conditions.push(`er.employee_id = $${paramIndex++}`);
+      params.push(employeeId);
+    }
+
+    if (businessId) {
+      conditions.push(`er.business_id = $${paramIndex++}`);
+      params.push(businessId);
+    }
+
+    const dateWhere = buildDateWhere(params, { date, fromDate, toDate, month, year, week });
+    conditions.push(...dateWhere.conditions);
+    paramIndex = dateWhere.paramIndex;
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+    const sortMap = {
+      employee: 'employee_name',
+      business: 'business_name',
+      reports: 'report_count',
+      score: 'numeric_total',
+      report_date: 'last_report_date'
+    };
+    const sortColumn = sortMap[sortBy] || sortMap.report_date;
+    const direction = sortDir.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+    const summarySql = `
+      SELECT
+        u.id AS employee_id,
+        u.name AS employee_name,
+        b.id AS business_id,
+        b.business_name,
+        COUNT(DISTINCT er.id)::int AS report_count,
+        COALESCE(SUM(CASE WHEN ff.field_type = 'number' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS numeric_total,
+        MIN(er.report_date) AS first_report_date,
+        MAX(er.report_date) AS last_report_date
+      FROM employee_reports er
+      JOIN users u ON er.employee_id = u.id
+      JOIN businesses b ON er.business_id = b.id
+      LEFT JOIN report_answers ra ON er.id = ra.report_id
+      LEFT JOIN form_fields ff ON ra.field_id = ff.id
+      ${where}
+      GROUP BY u.id, u.name, b.id, b.business_name
+      ORDER BY ${sortColumn} ${direction}
+    `;
+
+    const detailSql = `
+      SELECT
+        er.id,
+        er.report_date,
+        er.created_at,
+        u.id AS employee_id,
+        u.name AS employee_name,
+        b.id AS business_id,
+        b.business_name,
+        bt.timing_name,
+        at.name AS activity_name,
+        COALESCE(SUM(CASE WHEN ff.field_type = 'number' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS numeric_total,
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'fieldName', ff.field_name,
+              'fieldType', ff.field_type,
+              'value', ra.value
+            )
+            ORDER BY ff.display_order
+          ) FILTER (WHERE ff.id IS NOT NULL),
+          '[]'
+        ) AS answers
+      FROM employee_reports er
+      JOIN users u ON er.employee_id = u.id
+      JOIN businesses b ON er.business_id = b.id
+      JOIN business_timings bt ON er.timing_id = bt.id
+      JOIN activity_types at ON er.activity_type_id = at.id
+      LEFT JOIN report_answers ra ON er.id = ra.report_id
+      LEFT JOIN form_fields ff ON ra.field_id = ff.id
+      ${where}
+      GROUP BY er.id, u.id, u.name, b.id, b.business_name, bt.timing_name, at.name
+      ORDER BY er.report_date DESC, er.created_at DESC
+    `;
+
+    const [summaryRes, detailsRes] = await Promise.all([
+      query(summarySql, params),
+      query(detailSql, params)
+    ]);
+
+    return successResponse(res, {
+      summary: summaryRes.rows,
+      details: detailsRes.rows
+    }, 'Performance analytics fetched');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getOverview, getLeaderboard, getPerformance };
