@@ -27,6 +27,7 @@ const EmployeeTargets = lazy(() => import('../pages/employee/Targets'));
 const EmployeeSubmitReport = lazy(() => import('../pages/employee/SubmitReport'));
 const EmployeeReports = lazy(() => import('../pages/employee/Reports'));
 const EmployeeProfile = lazy(() => import('../pages/employee/Profile'));
+import { useAuthStore } from '../store/authStore';
 
 const PageLoader = () => (
   <div className="flex h-screen w-full flex-col items-center justify-center bg-dark-bg space-y-4">
@@ -36,6 +37,12 @@ const PageLoader = () => (
 );
 
 const AppRouter = () => {
+  const { _hasHydrated } = useAuthStore();
+
+  if (!_hasHydrated) {
+    return <PageLoader />;
+  }
+
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
@@ -44,6 +51,7 @@ const AppRouter = () => {
         <Route path="/register" element={<Register />} />
 
         <Route element={<PrivateRoute />}>
+...
           {/* Employee Routes */}
           <Route element={<EmployeeLayout />}>
             <Route path="/employee/dashboard" element={<EmployeeDashboard />} />

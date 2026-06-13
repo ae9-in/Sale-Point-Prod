@@ -7,12 +7,17 @@ export const useAuthStore = create(
       user: null,
       token: null,
       isAuthenticated: false,
+      _hasHydrated: false,
       setAuth: (user, token) => set({ user, token, isAuthenticated: true }),
       logout: () => set({ user: null, token: null, isAuthenticated: false }),
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
     }),
     {
       name: 'salepoint-auth',
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        state.setHasHydrated(true);
+      }
     }
   )
 );

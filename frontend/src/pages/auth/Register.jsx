@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,6 +6,7 @@ import * as z from 'zod';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
+import { useAuthStore } from '../../store/authStore';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import ThemeToggle from '../../components/layout/ThemeToggle';
@@ -26,6 +27,17 @@ const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'SUPER_ADMIN') {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/employee/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(registerSchema)

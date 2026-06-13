@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,7 +20,17 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const setAuth = useAuthStore(state => state.setAuth);
+  const { setAuth, isAuthenticated, user } = useAuthStore();
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === 'SUPER_ADMIN') {
+        navigate('/admin/dashboard', { replace: true });
+      } else {
+        navigate('/employee/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(loginSchema)
