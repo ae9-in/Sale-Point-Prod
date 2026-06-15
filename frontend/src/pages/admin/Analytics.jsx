@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from '../../api/axiosInstance';
 import Skeleton from '../../components/ui/Skeleton';
 import toast from 'react-hot-toast';
@@ -10,15 +10,31 @@ const COLORS = ['#6C63FF', '#10B981', '#FFB800', '#FF4D4D', '#AC73FF', '#00CFE8'
 const Analytics = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [locations, setLocations] = useState([]);
+  const [selectedLocationId, setSelectedLocationId] = useState('');
+
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
 
   useEffect(() => {
     fetchAnalyticsData();
-  }, []);
+  }, [selectedLocationId]);
+
+  const fetchInitialData = async () => {
+    try {
+      const res = await axios.get('/locations');
+      setLocations(res.data.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchAnalyticsData = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/reports');
+      const queryString = selectedLocationId ? `?locationId=${selectedLocationId}` : '';
+      const res = await axios.get(`/reports${queryString}`);
       setReports(res.data.data);
     } catch (err) {
       toast.error('Failed to load analytics data');
@@ -78,14 +94,29 @@ const Analytics = () => {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div>
-        <h1 className="text-lg font-bold text-content-primary flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-brand-primary" />
-          SaaS Analytics Dashboard
-        </h1>
-        <p className="text-content-secondary mt-1">
-          Detailed metrics, submission timelines, and monitoring data computed in real-time.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-1">
+        <div>
+          <h1 className="text-lg font-bold text-content-primary flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-brand-primary" />
+            SaaS Analytics Dashboard
+          </h1>
+          <p className="text-content-secondary mt-1 text-xs md:text-sm">
+            Detailed metrics, submission timelines, and monitoring data computed in real-time.
+          </p>
+        </div>
+
+        <div className="w-full sm:w-48">
+          <select
+            value={selectedLocationId}
+            onChange={(e) => setSelectedLocationId(e.target.value)}
+            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm transition-colors"
+          >
+            <option value="">All Locations</option>
+            {locations.map(loc => (
+              <option key={loc.id} value={loc.id}>{loc.name}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

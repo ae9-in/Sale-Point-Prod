@@ -5,14 +5,14 @@ const { hashPassword } = require('../utils/hashPassword');
 const getUsers = async (req, res, next) => {
   try {
     const { status } = req.query;
-    let sql = 'SELECT id, name, email, phone, role, status, created_at FROM users WHERE role = $1';
+    let sql = 'SELECT u.id, u.name, u.email, u.phone, u.role, u.status, u.created_at, u.location_id, l.name as location_name FROM users u LEFT JOIN locations l ON u.location_id = l.id WHERE u.role = $1';
     const params = ['EMPLOYEE'];
 
     if (status) {
-      sql += ' AND status = $2';
+      sql += ' AND u.status = $2';
       params.push(status);
     }
-    sql += ' ORDER BY created_at DESC';
+    sql += ' ORDER BY u.created_at DESC';
 
     const result = await query(sql, params);
 
@@ -52,14 +52,15 @@ const rejectUser = async (req, res, next) => {
 
 const createUser = async (req, res, next) => {
   try {
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, password, locationId } = req.body;
+    if (!locationId) return errorResponse(res, 'Location is required', 400);
     const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length > 0) return errorResponse(res, 'Email exists', 400);
 
     const hashed = await hashPassword(password);
     const result = await query(
-      'INSERT INTO users (name, email, phone, password, role, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, role, status',
-      [name, email, phone, hashed, 'EMPLOYEE', 'APPROVED']
+      'INSERT INTO users (name, email, phone, password, role, status, location_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, name, email, role, status, location_id',
+      [name, email, phone, hashed, 'EMPLOYEE', 'APPROVED', locationId]
     );
     return successResponse(res, result.rows[0], 'Employee created successfully');
   } catch (err) {
@@ -154,6 +155,30 @@ const getBusinessEmployees = async (req, res, next) => {
   }
 };
 
+const updateUserLocation = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { locationId } = req.body;
+    if (!locationId) return errorResponse(res, 'Location ID is required', 400);
+
+    const result = await query(
+      'UPDATE users SET location_id = $1 WHERE id = $2 RETURNING id, location_id',
+      [locationId, id]
+    );
+    if (result.rows.length === 0) return errorResponse(res, 'User not found', 404);
+
+    // Fetch updated user location info
+    const joinedResult = await query(
+      'SELECT u.id, u.name, u.location_id, l.name as location_name FROM users u LEFT JOIN locations l ON u.location_id = l.id WHERE u.id = $1',
+      [id]
+    );
+
+    return successResponse(res, joinedResult.rows[0], 'User location updated successfully');
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getUsers,
   approveUser,
@@ -164,5 +189,6 @@ module.exports = {
   assignBusiness,
   unassignBusiness,
   getEmployeeBusinesses,
-  getBusinessEmployees
+  getBusinessEmployees,
+  updateUserLocation
 };

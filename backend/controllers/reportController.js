@@ -31,7 +31,7 @@ const submitReport = async (req, res, next) => {
 
 const getReports = async (req, res, next) => {
   try {
-    const { employeeId, businessId, date } = req.query;
+    const { employeeId, businessId, date, locationId } = req.query;
     let sql = `
       SELECT er.*, u.name as employee_name, b.business_name, bt.timing_name, at.name as activity_name 
       FROM employee_reports er
@@ -55,6 +55,10 @@ const getReports = async (req, res, next) => {
     if (date) {
       sql += ` AND er.report_date = $${paramIndex++}`;
       params.push(date);
+    }
+    if (locationId) {
+      sql += ` AND u.location_id = $${paramIndex++}`;
+      params.push(locationId);
     }
 
     if (req.user.role === 'EMPLOYEE') {

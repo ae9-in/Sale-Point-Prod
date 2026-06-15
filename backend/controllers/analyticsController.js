@@ -36,20 +36,39 @@ const buildDateWhere = (params, filters = {}) => {
 
 const getOverview = async (req, res, next) => {
   try {
-    const empRes = await query("SELECT COUNT(*) FROM users WHERE role = 'EMPLOYEE'");
-    const bizRes = await query('SELECT COUNT(*) FROM businesses');
-    const pendRes = await query("SELECT COUNT(*) FROM users WHERE status = 'PENDING'");
-    const repRes = await query('SELECT COUNT(*) FROM employee_reports WHERE report_date = CURRENT_DATE');
-    
-    const callsRes = await query(`
+    const { locationId } = req.query;
+    let empSql = "SELECT COUNT(*) FROM users WHERE role = 'EMPLOYEE'";
+    let bizSql = "SELECT COUNT(*) FROM businesses";
+    let pendSql = "SELECT COUNT(*) FROM users WHERE status = 'PENDING'";
+    let repSql = "SELECT COUNT(*) FROM employee_reports er JOIN users u ON er.employee_id = u.id WHERE er.report_date = CURRENT_DATE";
+    let callsSql = `
       SELECT SUM(CAST(ra.value AS INTEGER)) as total_calls
       FROM report_answers ra
       JOIN form_fields ff ON ra.field_id = ff.id
       JOIN employee_reports er ON ra.report_id = er.id
+      JOIN users u ON er.employee_id = u.id
       WHERE ff.field_type = 'number' AND ff.field_name ILIKE '%call%'
       AND er.report_date = CURRENT_DATE
       AND ra.value ~ '^[0-9]+$'
-    `);
+    `;
+
+    const params = [];
+    if (locationId) {
+      empSql += " AND location_id = $1";
+      bizSql = "SELECT COUNT(DISTINCT eb.business_id) FROM employee_businesses eb JOIN users u ON eb.employee_id = u.id WHERE u.location_id = $1";
+      pendSql += " AND location_id = $1";
+      repSql += " AND u.location_id = $1";
+      callsSql += " AND u.location_id = $1";
+      params.push(locationId);
+    }
+
+    const [empRes, bizRes, pendRes, repRes, callsRes] = await Promise.all([
+      query(empSql, params),
+      query(bizSql, params),
+      query(pendSql, params),
+      query(repSql, params),
+      query(callsSql, params)
+    ]);
 
     return successResponse(res, {
       totalEmployees: parseInt(empRes.rows[0].count, 10),
@@ -63,18 +82,26 @@ const getOverview = async (req, res, next) => {
 
 const getLeaderboard = async (req, res, next) => {
   try {
-    const sql = `
-      SELECT u.id, u.name, SUM(CASE WHEN ff.field_name ILIKE '%positive leads%' AND ra.value ~ '^[0-9]+$' THEN ra.value::integer ELSE 0 END) as score
+    const { locationId } = req.query;
+    let sql = `
+      SELECT u.id, u.name, SUM(CASE WHEN ff.field_name ILIKE '%positive leads%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::integer ELSE 0 END) as score
       FROM users u
       JOIN employee_reports er ON u.id = er.employee_id
       JOIN report_answers ra ON er.id = ra.report_id
       JOIN form_fields ff ON ra.field_id = ff.id
       WHERE ff.field_type = 'number'
+    `;
+    const params = [];
+    if (locationId) {
+      sql += " AND u.location_id = $1";
+      params.push(locationId);
+    }
+    sql += `
       GROUP BY u.id, u.name
       ORDER BY score DESC
       LIMIT 10
     `;
-    const result = await query(sql);
+    const result = await query(sql, params);
     return successResponse(res, result.rows, 'Leaderboard fetched');
   } catch (err) { next(err); }
 };
@@ -90,6 +117,7 @@ const getPerformance = async (req, res, next) => {
       month,
       year,
       week,
+      locationId,
       sortBy = 'report_date',
       sortDir = 'desc'
     } = req.query;
@@ -109,6 +137,11 @@ const getPerformance = async (req, res, next) => {
     if (businessId) {
       conditions.push(`er.business_id = $${paramIndex++}`);
       params.push(businessId);
+    }
+
+    if (locationId) {
+      conditions.push(`u.location_id = $${paramIndex++}`);
+      params.push(locationId);
     }
 
     const dateWhere = buildDateWhere(params, { date, fromDate, toDate, month, year, week });

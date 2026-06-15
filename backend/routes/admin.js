@@ -3,7 +3,7 @@ const router = express.Router();
 const { 
   getUsers, approveUser, rejectUser, createUser, deleteUser,
   updateUserPassword, assignBusiness, unassignBusiness, getEmployeeBusinesses,
-  getBusinessEmployees
+  getBusinessEmployees, updateUserLocation
 } = require('../controllers/adminController');
 const authenticate = require('../middleware/authenticate');
 const authorize = require('../middleware/authorize');
@@ -31,6 +31,7 @@ router.get('/businesses/:id/employees', getBusinessEmployees);
 router.patch('/users/:id/password', [
   body('password').isLength({ min: 6 })
 ], validate, updateUserPassword);
+router.patch('/users/:id/location', updateUserLocation);
 
 router.post('/users', [
   body('name').notEmpty(),

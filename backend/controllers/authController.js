@@ -6,15 +6,18 @@ const jwt = require('jsonwebtoken');
 
 const register = async (req, res, next) => {
   try {
-    const { name, email, phone, password } = req.body;
+    const { name, email, phone, password, locationId } = req.body;
+    if (!locationId) {
+      return errorResponse(res, 'Location is required', 400);
+    }
     const existingUser = await query('SELECT id FROM users WHERE email = $1', [email]);
     if (existingUser.rows.length > 0) {
       return errorResponse(res, 'Email already in use', 400, 'EMAIL_EXISTS');
     }
     const hashedPwd = await hashPassword(password);
     const result = await query(
-      'INSERT INTO users (name, email, phone, password, role, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, email, role, status',
-      [name, email, phone, hashedPwd, 'EMPLOYEE', 'PENDING']
+      'INSERT INTO users (name, email, phone, password, role, status, location_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, name, email, role, status, location_id',
+      [name, email, phone, hashedPwd, 'EMPLOYEE', 'PENDING', locationId]
     );
     return successResponse(res, result.rows[0], 'Registration successful. Pending admin approval.', 201);
   } catch (err) {
@@ -25,7 +28,10 @@ const register = async (req, res, next) => {
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    const result = await query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await query(
+      'SELECT u.*, l.name as location_name FROM users u LEFT JOIN locations l ON u.location_id = l.id WHERE u.email = $1',
+      [email]
+    );
     if (result.rows.length === 0) {
       return errorResponse(res, 'Invalid email or password', 401, 'INVALID_CREDENTIALS');
     }
@@ -117,7 +123,10 @@ const logout = async (req, res, next) => {
 
 const me = async (req, res, next) => {
   try {
-    const result = await query('SELECT id, name, email, phone, role, status FROM users WHERE id = $1', [req.user.id]);
+    const result = await query(
+      'SELECT u.id, u.name, u.email, u.phone, u.role, u.status, u.location_id, l.name as location_name FROM users u LEFT JOIN locations l ON u.location_id = l.id WHERE u.id = $1',
+      [req.user.id]
+    );
     if (result.rows.length === 0) return errorResponse(res, 'User not found', 404, 'NOT_FOUND');
     return successResponse(res, result.rows[0], 'User data fetched');
   } catch (err) {
@@ -143,18 +152,23 @@ const updateProfile = async (req, res, next) => {
         params.push(email);
       }
 
-      sql += ` WHERE id = $${paramIndex} RETURNING id, name, email, phone, role, status`;
+      sql += ` WHERE id = $${paramIndex}`;
       params.push(userId);
 
-      const result = await query(sql, params);
-      return successResponse(res, result.rows[0], 'Profile updated successfully');
+      await query(sql, params);
     } else {
-      const result = await query(
-        'UPDATE users SET name = $1, phone = $2 WHERE id = $3 RETURNING id, name, email, phone, role, status',
+      await query(
+        'UPDATE users SET name = $1, phone = $2 WHERE id = $3',
         [name, phone, userId]
       );
-      return successResponse(res, result.rows[0], 'Profile updated successfully');
     }
+
+    // Fetch updated user with location details
+    const result = await query(
+      'SELECT u.id, u.name, u.email, u.phone, u.role, u.status, u.location_id, l.name as location_name FROM users u LEFT JOIN locations l ON u.location_id = l.id WHERE u.id = $1',
+      [userId]
+    );
+    return successResponse(res, result.rows[0], 'Profile updated successfully');
   } catch (err) { next(err); }
 };
 

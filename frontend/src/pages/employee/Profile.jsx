@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/authStore';
 import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 import toast from 'react-hot-toast';
-import { User, Mail, Phone, Shield, Lock, CheckCircle2, Target, Clock } from 'lucide-react';
+import { User, Mail, Phone, Shield, Lock, CheckCircle2, Target, Clock, MapPin } from 'lucide-react';
 
 const EmployeeProfile = () => {
   const { user } = useAuthStore();
@@ -90,9 +90,16 @@ const EmployeeProfile = () => {
         </div>
         <div>
           <h1 className="text-xl font-bold text-content-primary">{user?.name}</h1>
-          <p className="text-xs text-content-muted flex items-center gap-1.5 mt-0.5 capitalize">
-            <Shield size={12} className="text-brand-primary" /> {user?.role?.toLowerCase().replace('_', ' ')}
-          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-0.5">
+            <p className="text-xs text-content-muted flex items-center gap-1.5 capitalize">
+              <Shield size={12} className="text-brand-primary" /> {user?.role?.toLowerCase().replace('_', ' ')}
+            </p>
+            {user?.location_name && (
+              <span className="text-[10px] font-bold bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full flex items-center gap-1">
+                <MapPin size={10} /> {user.location_name}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -135,7 +142,10 @@ const EmployeeProfile = () => {
                   <p className="text-[10px] text-content-muted mt-1 italic">Contact admin to change primary email identity.</p>
                 </div>
               </div>
-              <Input label="Phone Number" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="Phone Number" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                <Input label="Location" value={user?.location_name || 'Not assigned'} disabled className="opacity-70 cursor-not-allowed" />
+              </div>
               <Button type="submit" isLoading={loading} className="w-full sm:w-auto">Update Profile</Button>
             </form>
           </div>

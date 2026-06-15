@@ -23,6 +23,7 @@ const businessRoutes = require('./routes/business');
 const targetsRoutes = require('./routes/targets');
 const reportsRoutes = require('./routes/reports');
 const analyticsRoutes = require('./routes/analytics');
+const locationRoutes = require('./routes/locations');
 const doubtsRoutes = require('./routes/doubts');
 
 app.use('/api/auth', authRoutes);
@@ -31,6 +32,7 @@ app.use('/api/businesses', businessRoutes);
 app.use('/api/targets', targetsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/locations', locationRoutes);
 app.use('/api/doubts', doubtsRoutes);
 
 // Basic route

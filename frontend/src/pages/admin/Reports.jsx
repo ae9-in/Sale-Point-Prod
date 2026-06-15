@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from '../../api/axiosInstance';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../../components/ui/Table';
 import Button from '../../components/ui/Button';
@@ -11,11 +11,13 @@ const Reports = () => {
   const [reports, setReports] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [businesses, setBusinesses] = useState([]);
+  const [locations, setLocations] = useState([]);
   
   const [filters, setFilters] = useState({
     employeeId: '',
     businessId: '',
-    date: ''
+    date: '',
+    locationId: ''
   });
   
   const [loading, setLoading] = useState(true);
@@ -32,17 +34,17 @@ const Reports = () => {
 
   const fetchInitialData = async () => {
     try {
-      const empRes = await axios.get('/admin/users?status=APPROVED');
+      const [empRes, bizRes, locRes] = await Promise.all([
+        axios.get('/admin/users?status=APPROVED'),
+        axios.get('/businesses'),
+        axios.get('/locations')
+      ]);
       setEmployees(empRes.data.data);
-    } catch (err) {
-      console.error(err);
-    }
-
-    try {
-      const bizRes = await axios.get('/businesses');
       setBusinesses(bizRes.data.data);
+      setLocations(locRes.data.data);
     } catch (err) {
       console.error(err);
+      toast.error('Failed to load initial filter options');
     }
   };
 
@@ -53,6 +55,7 @@ const Reports = () => {
       if (filters.employeeId) queryParams.push(`employeeId=${filters.employeeId}`);
       if (filters.businessId) queryParams.push(`businessId=${filters.businessId}`);
       if (filters.date) queryParams.push(`date=${filters.date}`);
+      if (filters.locationId) queryParams.push(`locationId=${filters.locationId}`);
       
       const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
       const res = await axios.get(`/reports${queryString}`);
@@ -75,7 +78,8 @@ const Reports = () => {
     setFilters({
       employeeId: '',
       businessId: '',
-      date: ''
+      date: '',
+      locationId: ''
     });
   };
 
@@ -126,7 +130,20 @@ const Reports = () => {
       </div>
 
       {/* Filters Bar */}
-      <div className="card motion-card motion-sheen p-5 bg-dark-surface/50 border border-dark-border grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+      <div className="card motion-card motion-sheen p-5 bg-dark-surface/50 border border-dark-border grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+        <div>
+          <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Filter Location</label>
+          <select
+            name="locationId"
+            value={filters.locationId}
+            onChange={handleFilterChange}
+            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm transition-colors"
+          >
+            <option value="">All Locations</option>
+            {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+          </select>
+        </div>
+
         <div>
           <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Filter Employee</label>
           <select
@@ -168,7 +185,7 @@ const Reports = () => {
             variant="secondary" 
             className="w-full"
             onClick={handleClearFilters}
-            disabled={!filters.employeeId && !filters.businessId && !filters.date}
+            disabled={!filters.employeeId && !filters.businessId && !filters.date && !filters.locationId}
           >
             Clear Filters
           </Button>

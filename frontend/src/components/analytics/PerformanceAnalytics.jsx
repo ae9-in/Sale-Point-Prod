@@ -13,6 +13,7 @@ const buildParams = (filters) => {
   const params = {};
   if (filters.employeeId) params.employeeId = filters.employeeId;
   if (filters.businessId) params.businessId = filters.businessId;
+  if (filters.locationId) params.locationId = filters.locationId;
   if (filters.sortBy) params.sortBy = filters.sortBy;
   if (filters.sortDir) params.sortDir = filters.sortDir;
 
@@ -67,6 +68,7 @@ const PerformanceAnalytics = ({
   const [filters, setFilters] = useState({
     employeeId: initialEmployeeId,
     businessId: initialBusinessId,
+    locationId: '',
     period: 'day',
     date: new Date().toISOString().slice(0, 10),
     week: '',
@@ -78,7 +80,22 @@ const PerformanceAnalytics = ({
     sortDir: 'desc'
   });
   const [data, setData] = useState({ summary: [], details: [] });
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!lockEmployee && showFilters) {
+      const fetchLocations = async () => {
+        try {
+          const res = await axios.get('/locations');
+          setLocations(res.data.data);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+      fetchLocations();
+    }
+  }, [lockEmployee, showFilters]);
 
   useEffect(() => {
     setFilters((previous) => ({
@@ -144,6 +161,15 @@ const PerformanceAnalytics = ({
       {showFilters && (
         <div className="card border-dark-border/40 bg-dark-surface/40 p-4">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {!lockEmployee && (
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Location</label>
+                <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.locationId} onChange={(e) => updateFilter('locationId', e.target.value)}>
+                  <option value="">All Locations</option>
+                  {locations.map((loc) => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
+                </select>
+              </div>
+            )}
             {!lockEmployee && (
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Team Member</label>

@@ -8,11 +8,11 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '../../components/ui/Table';
 import toast from 'react-hot-toast';
 import { 
   Check, KeyRound, MessageSquare, Plus, Trash2, UserCog, X,
-  User, Mail, Phone, Shield, Lock, Users, AlertCircle, Clock, CheckCircle2
+  User, Mail, Phone, Shield, Lock, Users, AlertCircle, Clock, CheckCircle2, MapPin
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
-const emptyEmployee = { name: '', email: '', phone: '', password: '' };
+const emptyEmployee = { name: '', email: '', phone: '', password: '', locationId: '' };
 
 const AdminProfile = () => {
   const { user, setAuth, token } = useAuthStore();
@@ -23,6 +23,9 @@ const AdminProfile = () => {
   const [employees, setEmployees] = useState([]);
   const [pendingUsers, setPendingUsers] = useState([]);
   const [doubts, setDoubts] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [newLocationName, setNewLocationName] = useState('');
+  const [locationLoading, setLocationLoading] = useState(false);
   const [adminPasswords, setAdminPasswords] = useState({});
   const [responses, setResponses] = useState({});
   
@@ -43,14 +46,16 @@ const AdminProfile = () => {
   const fetchAdminData = async () => {
     try {
       setDataLoading(true);
-      const [employeesRes, pendingRes, doubtsRes] = await Promise.all([
+      const [employeesRes, pendingRes, doubtsRes, locationsRes] = await Promise.all([
         axios.get('/admin/users?status=APPROVED'),
         axios.get('/admin/users?status=PENDING'),
-        axios.get('/doubts')
+        axios.get('/doubts'),
+        axios.get('/locations')
       ]);
       setEmployees(employeesRes.data.data);
       setPendingUsers(pendingRes.data.data);
       setDoubts(doubtsRes.data.data);
+      setLocations(locationsRes.data.data);
     } catch (err) {
       toast.error('Failed to load management data');
     } finally {
@@ -93,7 +98,7 @@ const AdminProfile = () => {
 
   const handleCreateEmployee = async (e) => {
     e.preventDefault();
-    if (!employeeForm.name || !employeeForm.email || !employeeForm.password) {
+    if (!employeeForm.name || !employeeForm.email || !employeeForm.password || !employeeForm.locationId) {
       return toast.error('Required fields missing');
     }
     try {
@@ -149,6 +154,41 @@ const AdminProfile = () => {
     } catch (err) { toast.error('Error'); }
   };
 
+  const handleUpdateUserLocation = async (id, locationId) => {
+    try {
+      const res = await axios.patch(`/admin/users/${id}/location`, { locationId });
+      toast.success('Location updated successfully');
+      setEmployees(employees.map(emp => {
+        if (emp.id === id) {
+          return { 
+            ...emp, 
+            location_id: res.data.data.location_id, 
+            location_name: res.data.data.location_name 
+          };
+        }
+        return emp;
+      }));
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update location');
+    }
+  };
+
+  const handleAddLocation = async (e) => {
+    e.preventDefault();
+    if (!newLocationName.trim()) return toast.error('Location name cannot be empty');
+    try {
+      setLocationLoading(true);
+      await axios.post('/locations', { name: newLocationName });
+      toast.success('Location added successfully');
+      setNewLocationName('');
+      fetchAdminData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to add location');
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in pb-10 px-1 lg:px-0">
       {/* Branded Header */}
@@ -158,9 +198,16 @@ const AdminProfile = () => {
         </div>
         <div>
           <h1 className="text-xl font-bold text-content-primary">Admin Control Center</h1>
-          <p className="text-xs text-content-muted flex items-center gap-1.5 mt-0.5 capitalize">
-            <Shield size={12} className="text-brand-primary" /> Management Account
-          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-0.5">
+            <p className="text-xs text-content-muted flex items-center gap-1.5 capitalize">
+              <Shield size={12} className="text-brand-primary" /> Management Account
+            </p>
+            {user?.location_name && (
+              <span className="text-[10px] font-bold bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full flex items-center gap-1">
+                <MapPin size={10} /> {user.location_name}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -178,6 +225,7 @@ const AdminProfile = () => {
                 <p className="text-[10px] text-content-muted mt-1 italic">Updating your email address changes your login credential.</p>
               </div>
               <Input label="Phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+              <Input label="Location" value={user?.location_name || 'Not assigned'} disabled className="opacity-70 cursor-not-allowed" />
               <Button type="submit" isLoading={loading} className="w-full">Update Details</Button>
             </form>
           </div>
@@ -202,8 +250,61 @@ const AdminProfile = () => {
               <Input label="Full Name" value={employeeForm.name} onChange={(e) => setEmployeeForm({...employeeForm, name: e.target.value})} />
               <Input label="Email" type="email" value={employeeForm.email} onChange={(e) => setEmployeeForm({...employeeForm, email: e.target.value})} />
               <Input label="Password" type="password" value={employeeForm.password} onChange={(e) => setEmployeeForm({...employeeForm, password: e.target.value})} placeholder="••••••••" />
+              
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-1">Location</label>
+                <select 
+                  className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors text-sm"
+                  value={employeeForm.locationId || ''}
+                  onChange={(e) => setEmployeeForm({...employeeForm, locationId: e.target.value})}
+                  required
+                >
+                  <option value="">Select location...</option>
+                  {locations.map(loc => (
+                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <Button type="submit" className="w-full">Create User</Button>
             </form>
+          </div>
+
+          <div className="card border-brand-primary/10 bg-brand-primary/[0.02]">
+            <h3 className="text-sm font-bold text-content-primary mb-4 flex items-center gap-2">
+              <MapPin size={16} className="text-brand-primary" /> Locations Manager
+            </h3>
+            <form onSubmit={handleAddLocation} className="space-y-4">
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="New location..." 
+                  value={newLocationName} 
+                  onChange={(e) => setNewLocationName(e.target.value)} 
+                  className="flex-1"
+                />
+                <Button type="submit" isLoading={locationLoading} className="px-4">
+                  <Plus size={16} />
+                </Button>
+              </div>
+            </form>
+            
+            <div className="mt-4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-content-muted mb-2">Available Locations</p>
+              <div className="flex flex-wrap gap-1.5">
+                {locations.map(loc => (
+                  <span 
+                    key={loc.id} 
+                    className="text-[10px] font-medium bg-dark-bg border border-dark-border text-content-primary px-2.5 py-1 rounded-lg flex items-center gap-1 hover:border-brand-primary transition-colors duration-200"
+                  >
+                    <MapPin size={8} className="text-brand-primary" />
+                    {loc.name}
+                  </span>
+                ))}
+                {locations.length === 0 && (
+                  <p className="text-xs text-content-muted italic">No locations configured</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -239,7 +340,17 @@ const AdminProfile = () => {
                 <Tbody>
                   {pendingUsers.map(u => (
                     <Tr key={u.id}>
-                      <Td><p className="font-bold text-content-primary text-xs">{u.name}</p><p className="text-[10px] text-content-muted">{u.email}</p></Td>
+                      <Td>
+                        <p className="font-bold text-content-primary text-xs">{u.name}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <span className="text-[10px] text-content-muted">{u.email}</span>
+                          {u.location_name && (
+                            <span className="text-[10px] font-bold bg-brand-primary/10 text-brand-primary px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                              <MapPin size={8} /> {u.location_name}
+                            </span>
+                          )}
+                        </div>
+                      </Td>
                       <Td className="text-right">
                         <div className="flex justify-end gap-2">
                           <button onClick={() => handleReject(u.id)} className="p-1.5 rounded-lg text-content-muted hover:bg-brand-danger/10 hover:text-brand-danger transition-colors"><X size={16} /></button>
@@ -267,16 +378,38 @@ const AdminProfile = () => {
             </div>
             <div className="overflow-x-auto">
               <Table>
-                <Thead><Tr><Th className="text-[10px]">Employee</Th><Th className="text-[10px]">Reset Pwd</Th><Th className="text-right text-[10px]">Action</Th></Tr></Thead>
+                <Thead>
+                  <Tr>
+                    <Th className="text-[10px]">Employee</Th>
+                    <Th className="text-[10px]">Location</Th>
+                    <Th className="text-[10px]">Reset Pwd</Th>
+                    <Th className="text-right text-[10px]">Action</Th>
+                  </Tr>
+                </Thead>
                 <Tbody>
                   {employees.map(e => (
                     <Tr key={e.id}>
-                      <Td><p className="font-bold text-content-primary text-xs">{e.name}</p><p className="text-[10px] text-content-muted">{e.email}</p></Td>
+                      <Td>
+                        <p className="font-bold text-content-primary text-xs">{e.name}</p>
+                        <p className="text-[10px] text-content-muted">{e.email}</p>
+                      </Td>
+                      <Td>
+                        <select
+                          className="bg-dark-bg border border-dark-border rounded px-2 py-1 text-[11px] w-28 focus:border-brand-primary outline-none text-content-primary"
+                          value={e.location_id || ''}
+                          onChange={(v) => handleUpdateUserLocation(e.id, v.target.value)}
+                        >
+                          <option value="">No Location</option>
+                          {locations.map(loc => (
+                            <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          ))}
+                        </select>
+                      </Td>
                       <Td>
                         <div className="flex items-center gap-2">
                           <input 
                             type="password" 
-                            className="bg-dark-bg border border-dark-border rounded px-2 py-1 text-[11px] w-24 focus:border-brand-primary outline-none"
+                            className="bg-dark-bg border border-dark-border rounded px-2 py-1 text-[11px] w-24 focus:border-brand-primary outline-none text-content-primary"
                             placeholder="New..."
                             value={adminPasswords[e.id] || ''}
                             onChange={v => setAdminPasswords({...adminPasswords, [e.id]: v.target.value})}

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,6 +15,7 @@ const registerSchema = z.object({
   name: z.string().min(2, 'Name is required'),
   email: z.string().email('Invalid email address'),
   phone: z.string().min(10, 'Valid phone number is required'),
+  locationId: z.string().min(1, 'Location is required'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string()
 }).refine((data) => data.password === data.confirmPassword, {
@@ -26,8 +27,21 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [locations, setLocations] = useState([]);
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/locations`);
+        setLocations(res.data.data);
+      } catch (err) {
+        toast.error('Failed to load locations');
+      }
+    };
+    fetchLocations();
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -117,6 +131,23 @@ const Register = () => {
             {...register('phone')}
             error={errors.phone?.message}
           />
+          
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-1">Location</label>
+            <select 
+              className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors text-sm"
+              {...register('locationId')}
+              required
+            >
+              <option value="">Select your location...</option>
+              {locations.map(loc => (
+                <option key={loc.id} value={loc.id}>{loc.name}</option>
+              ))}
+            </select>
+            {errors.locationId && (
+              <p className="text-xs text-brand-danger mt-1">{errors.locationId.message}</p>
+            )}
+          </div>
           
           <div className="relative">
             <Input 
