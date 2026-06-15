@@ -174,8 +174,8 @@ const AdminProfile = () => {
             <form onSubmit={handleUpdateProfile} className="space-y-4">
               <Input label="Name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
               <div>
-                <Input label="Email Address" type="email" value={formData.email} disabled className="opacity-70 cursor-not-allowed" />
-                <p className="text-[10px] text-content-muted mt-1 italic">Contact system admin to change primary email identity.</p>
+                <Input label="Email Address" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                <p className="text-[10px] text-content-muted mt-1 italic">Updating your email address changes your login credential.</p>
               </div>
               <Input label="Phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
               <Button type="submit" isLoading={loading} className="w-full">Update Details</Button>
