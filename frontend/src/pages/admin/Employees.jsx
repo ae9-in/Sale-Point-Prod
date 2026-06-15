@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from '../../api/axiosInstance';
 import PerformanceAnalytics from '../../components/analytics/PerformanceAnalytics';
 import Button from '../../components/ui/Button';
@@ -151,13 +151,23 @@ const Employees = () => {
                   selectedEmployeeId === employee.id && 'border-brand-primary bg-brand-primary/10'
                 )}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-content-primary">{employee.name}</p>
-                    <p className="mt-1 flex items-center gap-1.5 text-sm text-content-secondary"><Mail className="h-3.5 w-3.5" /> {employee.email}</p>
-                    {employee.phone && <p className="mt-1 flex items-center gap-1.5 text-sm text-content-muted"><Phone className="h-3.5 w-3.5" /> {employee.phone}</p>}
+                <div className="flex items-start justify-between gap-3 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-content-primary truncate" title={employee.name}>{employee.name}</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-sm text-content-secondary min-w-0">
+                      <Mail className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="truncate" title={employee.email}>{employee.email}</span>
+                    </p>
+                    {employee.phone && (
+                      <p className="mt-1 flex items-center gap-1.5 text-sm text-content-muted min-w-0">
+                        <Phone className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="truncate" title={employee.phone}>{employee.phone}</span>
+                      </p>
+                    )}
                   </div>
-                  <span className="rounded-full bg-brand-primary/10 px-2.5 py-1 text-xs font-semibold text-brand-primary">{employee.assignedBusinesses || 0} businesses</span>
+                  <span className="rounded-full bg-brand-primary/10 px-2.5 py-1 text-xs font-semibold text-brand-primary flex-shrink-0 whitespace-nowrap">
+                    {employee.assignedBusinesses || 0} {employee.assignedBusinesses === 1 ? 'business' : 'businesses'}
+                  </span>
                 </div>
               </button>
             ))}
