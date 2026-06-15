@@ -1,9 +1,10 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import PrivateRoute from './PrivateRoute';
 import AdminRoute from './AdminRoute';
 import AdminLayout from '../layouts/AdminLayout';
 import EmployeeLayout from '../layouts/EmployeeLayout';
+import axiosInstance from '../api/axiosInstance';
 
 // Auth Pages
 const Login = lazy(() => import('../pages/auth/Login'));
@@ -39,9 +40,35 @@ const PageLoader = () => (
 );
 
 const AppRouter = () => {
-  const { _hasHydrated } = useAuthStore();
+  const { _hasHydrated, isAuthenticated, setAuth, logout } = useAuthStore();
+  const [isValidating, setIsValidating] = useState(isAuthenticated);
 
-  if (!_hasHydrated) return <PageLoader />;
+  useEffect(() => {
+    if (_hasHydrated) {
+      if (isAuthenticated) {
+        const verifySession = async () => {
+          try {
+            const res = await axiosInstance.get('/auth/me');
+            setAuth(res.data.data, useAuthStore.getState().token);
+          } catch (err) {
+            console.error('Initial session verification failed:', err);
+            // If it's an authentication error (401 or 403), the interceptor will have logged out and redirected.
+            // If it's a network issue or server error, we keep the current session and let it run.
+            if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+              logout();
+            }
+          } finally {
+            setIsValidating(false);
+          }
+        };
+        verifySession();
+      } else {
+        setIsValidating(false);
+      }
+    }
+  }, [_hasHydrated, isAuthenticated, setAuth, logout]);
+
+  if (!_hasHydrated || isValidating) return <PageLoader />;
 
   return (
     <Suspense fallback={<PageLoader />}>
