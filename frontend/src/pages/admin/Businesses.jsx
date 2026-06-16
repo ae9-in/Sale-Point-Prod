@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import axios from '../../api/axiosInstance';
 import PerformanceAnalytics from '../../components/analytics/PerformanceAnalytics';
 import Button from '../../components/ui/Button';
@@ -36,6 +36,17 @@ const Businesses = () => {
   const [assignToAll, setAssignToAll] = useState(true);
   const [selectedTargetEmployeeIds, setSelectedTargetEmployeeIds] = useState([]);
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowEmployeeDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const selectedBusiness = useMemo(
     () => businesses.find((business) => business.id === selectedBusinessId),
@@ -454,7 +465,7 @@ const Businesses = () => {
                   </h3>
                   
                   <form onSubmit={handleSetBusinessTarget} className="space-y-4">
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 items-end">
                       <Input
                         label="Metric"
                         value={businessTarget.targetName}
@@ -480,57 +491,69 @@ const Businesses = () => {
                         value={businessTarget.endDate}
                         onChange={(event) => setBusinessTarget({ ...businessTarget, endDate: event.target.value })}
                       />
-                    </div>
 
-                    <div className="border-t border-dark-border/40 pt-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <input
-                          id="assignToAll"
-                          type="checkbox"
-                          checked={assignToAll}
-                          onChange={(e) => setAssignToAll(e.target.checked)}
-                          className="h-4 w-4 rounded border-dark-border bg-dark-bg text-brand-primary focus:ring-brand-primary"
-                        />
-                        <label htmlFor="assignToAll" className="text-xs font-semibold text-content-primary uppercase tracking-wider cursor-pointer">
-                          Assign target to all employees in this business
+                      <div className="relative w-full" ref={dropdownRef}>
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-content-secondary mb-1.5">
+                          Employees
                         </label>
-                      </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowEmployeeDropdown(!showEmployeeDropdown)}
+                          className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary text-sm flex items-center justify-between hover:border-brand-primary/50 transition-colors h-10"
+                        >
+                          <span className="truncate">
+                            {assignToAll
+                              ? 'All Employees'
+                              : selectedTargetEmployeeIds.length === 0
+                              ? 'Select employees'
+                              : `${selectedTargetEmployeeIds.length} selected`}
+                          </span>
+                          <ChevronDown className={cn("h-4 w-4 text-content-muted transition-transform ml-1 flex-shrink-0", showEmployeeDropdown && "rotate-180")} />
+                        </button>
 
-                      {!assignToAll && (
-                        <div className="relative space-y-1">
-                          <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted">Target Employees</label>
-                          <button
-                            type="button"
-                            onClick={() => setShowEmployeeDropdown(!showEmployeeDropdown)}
-                            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary text-sm flex items-center justify-between hover:border-brand-primary/50 transition-colors h-10"
-                          >
-                            <span>
-                              {selectedTargetEmployeeIds.length === 0 
-                                ? 'No employees selected' 
-                                : `${selectedTargetEmployeeIds.length} employee${selectedTargetEmployeeIds.length > 1 ? 's' : ''} selected`}
-                            </span>
-                            <ChevronDown className={cn("h-4 w-4 text-content-muted transition-transform", showEmployeeDropdown && "rotate-180")} />
-                          </button>
-
-                          {showEmployeeDropdown && (
-                            <div className="absolute z-10 w-full mt-1 bg-dark-surface border border-dark-border rounded-lg shadow-xl max-h-48 overflow-y-auto p-2 space-y-1 animate-fade-in">
-                              {assignedEmployees.length === 0 ? (
-                                <p className="text-xs text-content-muted italic p-2">No employees assigned to this business yet</p>
-                              ) : (
-                                assignedEmployees.map((emp) => {
-                                  const isChecked = selectedTargetEmployeeIds.includes(emp.id);
+                        {showEmployeeDropdown && (
+                          <div className="absolute z-20 w-full mt-1 bg-dark-surface border border-dark-border rounded-lg shadow-xl max-h-48 overflow-y-auto p-2 space-y-1 animate-fade-in">
+                            {assignedEmployees.length === 0 ? (
+                              <p className="text-xs text-content-muted italic p-2">No employees assigned</p>
+                            ) : (
+                              <>
+                                <label
+                                  className={cn(
+                                    "flex items-center gap-2 rounded px-2.5 py-1.5 text-xs text-content-secondary cursor-pointer hover:bg-dark-bg/60 transition",
+                                    assignToAll && "text-content-primary font-medium"
+                                  )}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={assignToAll}
+                                    onChange={(e) => {
+                                      setAssignToAll(e.target.checked);
+                                      if (e.target.checked) {
+                                        setSelectedTargetEmployeeIds([]);
+                                      }
+                                    }}
+                                    className="h-3.5 w-3.5 rounded border-dark-border bg-dark-bg text-brand-primary focus:ring-brand-primary"
+                                  />
+                                  <span className="truncate font-semibold">All Employees</span>
+                                </label>
+                                <div className="border-t border-dark-border/40 my-1"></div>
+                                {assignedEmployees.map((emp) => {
+                                  const isChecked = assignToAll || selectedTargetEmployeeIds.includes(emp.id);
                                   return (
                                     <label
                                       key={emp.id}
                                       className={cn(
-                                        "flex items-center gap-2 rounded px-2.5 py-1.5 text-xs text-content-secondary cursor-pointer hover:bg-dark-bg/60 transition",
+                                        "flex items-center gap-2 rounded px-2.5 py-1.5 text-xs text-content-secondary transition",
+                                        assignToAll ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:bg-dark-bg/60",
                                         isChecked && "text-content-primary font-medium"
                                       )}
                                     >
                                       <input
                                         type="checkbox"
                                         checked={isChecked}
+                                        disabled={assignToAll}
                                         onChange={(e) => {
+                                          if (assignToAll) return;
                                           if (e.target.checked) {
                                             setSelectedTargetEmployeeIds([...selectedTargetEmployeeIds, emp.id]);
                                           } else {
@@ -542,18 +565,22 @@ const Businesses = () => {
                                       <span className="truncate">{emp.name}</span>
                                     </label>
                                   );
-                                })
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                                })}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
-                    <div className="flex justify-end pt-2">
-                      <Button type="submit" disabled={assignedEmployees.length === 0}>
-                        Set Target
-                      </Button>
+                      <div className="w-full">
+                        <Button
+                          type="submit"
+                          className="w-full h-10"
+                          disabled={assignedEmployees.length === 0}
+                        >
+                          Set Target
+                        </Button>
+                      </div>
                     </div>
                   </form>
                 </div>
