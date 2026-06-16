@@ -7,6 +7,12 @@ const Input = React.forwardRef(({ label, error, className, ...props }, ref) => {
       {label && <label className="block text-xs font-semibold uppercase tracking-wide text-content-secondary mb-1.5">{label}</label>}
       <input
         ref={ref}
+        onWheel={(e) => {
+          if (props.type === 'number') {
+            e.currentTarget.blur();
+          }
+          if (props.onWheel) props.onWheel(e);
+        }}
         className={cn(
           "w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none transition-colors",
           "focus:border-brand-primary focus:ring-1 focus:ring-brand-primary",
