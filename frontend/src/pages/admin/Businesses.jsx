@@ -512,7 +512,7 @@ const Businesses = () => {
                         </button>
 
                         {showEmployeeDropdown && (
-                          <div className="absolute z-20 min-w-full w-60 md:w-64 mt-1 bg-dark-surface border border-dark-border rounded-lg shadow-xl max-h-48 overflow-y-auto p-2 space-y-1 animate-fade-in left-0">
+                          <div className="absolute z-20 min-w-full w-60 md:w-64 bottom-full mb-1 bg-dark-surface border border-dark-border rounded-lg shadow-xl max-h-48 overflow-y-auto p-2 space-y-1 animate-fade-in left-0">
                             {assignedEmployees.length === 0 ? (
                               <p className="text-xs text-content-muted italic p-2">No employees assigned</p>
                             ) : (
