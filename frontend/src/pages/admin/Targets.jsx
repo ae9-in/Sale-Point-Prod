@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from '../../api/axiosInstance';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../../components/ui/Table';
 import Button from '../../components/ui/Button';
@@ -15,6 +15,7 @@ const Targets = () => {
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [loadingTargets, setLoadingTargets] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [formData, setFormData] = useState({
     businessId: '',
@@ -32,8 +33,10 @@ const Targets = () => {
     try {
       const res = await axios.get('/admin/users?status=APPROVED');
       setEmployees(res.data.data);
-      if (res.data.data.length > 0) {
-        setSelectedEmployeeId(res.data.data[0].id);
+      
+      const filtered = res.data.data;
+      if (filtered.length > 0) {
+        setSelectedEmployeeId(filtered[0].id);
       }
     } catch (err) {
       toast.error('Failed to load employees');
@@ -130,6 +133,13 @@ const Targets = () => {
 
   const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
 
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(emp =>
+      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [employees, searchTerm]);
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -146,16 +156,23 @@ const Targets = () => {
             <Award className="w-4 h-4 text-brand-primary" />
             Employees
           </h2>
+          <input
+            type="text"
+            placeholder="Search employee..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors placeholder:text-content-muted/50"
+          />
           
           {loadingEmployees ? (
             <div className="flex h-10 w-full items-center justify-center">
               <Spinner size="sm" />
             </div>
-          ) : employees.length === 0 ? (
-            <p className="text-content-muted text-sm">No approved employees found.</p>
+          ) : filteredEmployees.length === 0 ? (
+            <p className="text-content-muted text-sm text-center py-2">No matching employees.</p>
           ) : (
             <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
-              {employees.map((emp) => (
+              {filteredEmployees.map((emp) => (
                 <button
                   key={emp.id}
                   onClick={() => setSelectedEmployeeId(emp.id)}

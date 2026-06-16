@@ -6,6 +6,7 @@ import Spinner from '../../components/ui/Spinner';
 import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
 import { FileText, Eye, X, Calendar, User, Building2, Clock, Download } from 'lucide-react';
+import SubmissionStatusTracker from '../../components/analytics/SubmissionStatusTracker';
 
 const Reports = () => {
   const [reports, setReports] = useState([]);
@@ -24,6 +25,7 @@ const Reports = () => {
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState('');
 
   useEffect(() => {
     fetchInitialData();
@@ -84,7 +86,15 @@ const Reports = () => {
       locationId: '',
       activityType: ''
     });
+    setEmployeeSearch('');
   };
+
+  const filteredReports = useMemo(() => {
+    if (!employeeSearch) return reports;
+    return reports.filter(r =>
+      r.employee_name.toLowerCase().includes(employeeSearch.toLowerCase())
+    );
+  }, [reports, employeeSearch]);
 
   const handleViewReport = async (reportId) => {
     try {
@@ -100,7 +110,7 @@ const Reports = () => {
 
   const handleExport = () => {
     const headers = ['Employee', 'Business', 'Timing', 'Activity', 'Date'];
-    const rows = reports.map((report) => [
+    const rows = filteredReports.map((report) => [
       report.employee_name,
       report.business_name,
       report.timing_name,
@@ -133,7 +143,7 @@ const Reports = () => {
       </div>
 
       {/* Filters Bar */}
-      <div className="card motion-card motion-sheen p-5 bg-dark-surface/50 border border-dark-border grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
+      <div className="card motion-card motion-sheen p-5 bg-dark-surface/50 border border-dark-border grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 items-end">
         <div>
           <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Filter Location</label>
           <select
@@ -158,6 +168,17 @@ const Reports = () => {
             <option value="">All Employees</option>
             {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Search Employee</label>
+          <input
+            type="text"
+            placeholder="Type name..."
+            value={employeeSearch}
+            onChange={(e) => setEmployeeSearch(e.target.value)}
+            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm h-10 transition-colors placeholder:text-content-muted/50"
+          />
         </div>
 
         <div>
@@ -200,14 +221,22 @@ const Reports = () => {
         <div>
           <Button 
             variant="secondary" 
-            className="w-full"
+            className="w-full h-10"
             onClick={handleClearFilters}
-            disabled={!filters.employeeId && !filters.businessId && !filters.date && !filters.locationId && !filters.activityType}
+            disabled={!filters.employeeId && !filters.businessId && !filters.date && !filters.locationId && !filters.activityType && !employeeSearch}
           >
             Clear Filters
           </Button>
         </div>
       </div>
+
+      {filters.businessId && (
+        <SubmissionStatusTracker
+          businessId={filters.businessId}
+          date={filters.date}
+          locationId={filters.locationId}
+        />
+      )}
 
       {/* Reports List */}
       <div className="card motion-card motion-sheen overflow-hidden">
@@ -215,58 +244,60 @@ const Reports = () => {
           <div className="flex h-64 items-center justify-center">
             <Spinner size="lg" />
           </div>
-        ) : reports.length === 0 ? (
+        ) : filteredReports.length === 0 ? (
           <div className="p-5 text-center text-content-muted">
-            No performance reports match the selected filters.
+            No performance reports match the selected filters or search.
           </div>
         ) : (
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Employee</Th>
-                <Th>Business</Th>
-                <Th>Timing & Type</Th>
-                <Th>Report Date</Th>
-                <Th className="text-right">Action</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {reports.map((rep) => (
-                <Tr key={rep.id}>
-                  <Td className="font-semibold text-content-primary">{rep.employee_name}</Td>
-                  <Td className="text-content-secondary">{rep.business_name}</Td>
-                  <Td>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5 text-xs text-content-secondary">
-                        <Clock className="w-3.5 h-3.5 text-brand-secondary" />
-                        <span>{rep.timing_name}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-content-muted">
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>{rep.activity_name}</span>
-                      </div>
-                    </div>
-                  </Td>
-                  <Td>
-                    <div className="flex items-center gap-1.5 text-content-secondary">
-                      <Calendar className="w-3.5 h-3.5 text-content-muted" />
-                      <span>{new Date(rep.report_date).toLocaleDateString()}</span>
-                    </div>
-                  </Td>
-                  <Td className="text-right">
-                    <Button 
-                      size="sm" 
-                      variant="secondary" 
-                      onClick={() => handleViewReport(rep.id)}
-                    >
-                      <Eye className="w-4 h-4 mr-1.5" />
-                      View Details
-                    </Button>
-                  </Td>
+          <div className="overflow-x-auto">
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Employee</Th>
+                  <Th>Business</Th>
+                  <Th>Timing & Type</Th>
+                  <Th>Report Date</Th>
+                  <Th className="text-right">Action</Th>
                 </Tr>
-              ))}
-            </Tbody>
-          </Table>
+              </Thead>
+              <Tbody>
+                {filteredReports.map((rep) => (
+                  <Tr key={rep.id}>
+                    <Td className="font-semibold text-content-primary">{rep.employee_name}</Td>
+                    <Td className="text-content-secondary">{rep.business_name}</Td>
+                    <Td>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5 text-xs text-content-secondary">
+                          <Clock className="w-3.5 h-3.5 text-brand-secondary" />
+                          <span>{rep.timing_name}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-content-muted">
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>{rep.activity_name}</span>
+                        </div>
+                      </div>
+                    </Td>
+                    <Td>
+                      <div className="flex items-center gap-1.5 text-content-secondary">
+                        <Calendar className="w-3.5 h-3.5 text-content-muted" />
+                        <span>{new Date(rep.report_date).toLocaleDateString()}</span>
+                      </div>
+                    </Td>
+                    <Td className="text-right">
+                      <Button 
+                        size="sm" 
+                        variant="secondary" 
+                        onClick={() => handleViewReport(rep.id)}
+                      >
+                        <Eye className="w-4 h-4 mr-1.5" />
+                        View Details
+                      </Button>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </div>
         )}
       </div>
 

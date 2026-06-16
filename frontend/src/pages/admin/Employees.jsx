@@ -22,6 +22,7 @@ const Employees = () => {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [assignBusinessId, setAssignBusinessId] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.id === selectedEmployeeId),
@@ -73,6 +74,15 @@ const Employees = () => {
 
   useEffect(() => { fetchBaseData(); }, []);
   useEffect(() => { fetchEmployeeDetails(selectedEmployeeId); }, [selectedEmployeeId]);
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(emp =>
+      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (emp.phone && emp.phone.includes(searchTerm)) ||
+      (emp.location_name && emp.location_name.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [employees, searchTerm]);
 
   const handleInputChange = (event) => {
     setFormData((previous) => ({ ...previous, [event.target.name]: event.target.value }));
@@ -190,11 +200,18 @@ const Employees = () => {
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[420px_1fr]">
         <div className="card motion-card motion-sheen overflow-hidden">
-          <div className="border-b border-dark-border px-5 py-4">
+          <div className="border-b border-dark-border px-5 py-4 flex flex-col gap-3">
             <h2 className="font-semibold text-content-primary">All Employees</h2>
+            <input
+              type="text"
+              placeholder="Search by name, email, phone, location..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors placeholder:text-content-muted/50"
+            />
           </div>
           <div className="max-h-[640px] overflow-y-auto p-3">
-            {employees.map((employee) => (
+            {filteredEmployees.map((employee) => (
               <button
                 key={employee.id}
                 type="button"
@@ -229,7 +246,7 @@ const Employees = () => {
                 </div>
               </button>
             ))}
-            {employees.length === 0 && <p className="p-5 text-center text-content-muted">No active employees found.</p>}
+            {filteredEmployees.length === 0 && <p className="p-5 text-center text-content-muted">No employees match search.</p>}
           </div>
         </div>
 

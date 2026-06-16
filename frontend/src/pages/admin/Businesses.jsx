@@ -23,6 +23,7 @@ const Businesses = () => {
   const [activityTypes, setActivityTypes] = useState([]);
   const [fieldsByActivity, setFieldsByActivity] = useState({});
   const [businessForm, setBusinessForm] = useState(emptyBusiness);
+  const [searchTerm, setSearchTerm] = useState('');
   const [timingName, setTimingName] = useState('');
   const [editingTimingId, setEditingTimingId] = useState('');
   const [editingTimingName, setEditingTimingName] = useState('');
@@ -52,6 +53,13 @@ const Businesses = () => {
     () => businesses.find((business) => business.id === selectedBusinessId),
     [businesses, selectedBusinessId]
   );
+
+  const filteredBusinesses = useMemo(() => {
+    return businesses.filter(b =>
+      b.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (b.description && b.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  }, [businesses, searchTerm]);
 
   const unassignedEmployees = employees.filter(
     (employee) => !assignedEmployees.some((assigned) => assigned.id === employee.id)
@@ -348,11 +356,18 @@ const Businesses = () => {
           </div>
 
           <div className="card motion-card motion-sheen overflow-hidden">
-            <div className="border-b border-dark-border px-5 py-4">
+            <div className="border-b border-dark-border px-5 py-4 flex flex-col gap-3">
               <h2 className="font-semibold text-content-primary">All Businesses</h2>
+              <input
+                type="text"
+                placeholder="Search by name, description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors placeholder:text-content-muted/50"
+              />
             </div>
             <div className="max-h-[520px] overflow-y-auto p-3">
-              {businesses.map((business) => (
+              {filteredBusinesses.map((business) => (
                 <button
                   key={business.id}
                   type="button"
@@ -371,7 +386,7 @@ const Businesses = () => {
                   </div>
                 </button>
               ))}
-              {businesses.length === 0 && <p className="p-4 text-sm text-content-muted">No businesses created yet.</p>}
+              {filteredBusinesses.length === 0 && <p className="p-4 text-sm text-content-muted">No businesses match search.</p>}
             </div>
           </div>
         </div>

@@ -6,6 +6,7 @@ import Spinner from '../ui/Spinner';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../ui/Table';
 import { Download, Filter, TrendingUp, BarChart3, Clock, UserCheck } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import SubmissionStatusTracker from './SubmissionStatusTracker';
 
 const currentYear = new Date().getFullYear();
 
@@ -39,16 +40,40 @@ const buildParams = (filters) => {
 };
 
 const toCsv = (rows) => {
-  const headers = ['Date', 'Employee', 'Business', 'Timing', 'Activity', 'Positive Leads', 'Answers'];
-  const body = rows.map((row) => [
-    row.report_date ? new Date(row.report_date).toLocaleDateString() : '',
-    row.employee_name,
-    row.business_name,
-    row.timing_name,
-    row.activity_name,
-    row.numeric_total,
-    (row.answers || []).map((answer) => `${answer.fieldName}: ${answer.value}`).join(' | ')
-  ]);
+  const headers = [
+    'Date', 
+    'Employee', 
+    'Business', 
+    'Timing', 
+    'Activity', 
+    'Dialled Calls', 
+    'Answered Calls', 
+    'Answered Rate %', 
+    'Positive Leads', 
+    'Positive Lead Rate %', 
+    'Answers'
+  ];
+  const body = rows.map((row) => {
+    const dialled = Number(row.dialled_total || 0);
+    const answered = Number(row.answered_total || 0);
+    const leads = Number(row.numeric_total || 0);
+    const answerRate = dialled > 0 ? `${Math.round((answered / dialled) * 100)}%` : '—';
+    const leadRate = dialled > 0 ? `${Math.round((leads / dialled) * 100)}%` : '—';
+
+    return [
+      row.report_date ? new Date(row.report_date).toLocaleDateString() : '',
+      row.employee_name,
+      row.business_name,
+      row.timing_name,
+      row.activity_name,
+      dialled,
+      answered,
+      answerRate,
+      leads,
+      leadRate,
+      (row.answers || []).map((answer) => `${answer.fieldName}: ${answer.value}`).join(' | ')
+    ];
+  });
 
   return [headers, ...body]
     .map((line) => line.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(','))
@@ -83,6 +108,8 @@ const PerformanceAnalytics = ({
   });
   const [data, setData] = useState({ summary: [], details: [] });
   const [locations, setLocations] = useState([]);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [groupBy, setGroupBy] = useState('employee');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -121,48 +148,143 @@ const PerformanceAnalytics = ({
     fetchAnalytics();
   }, [filters]);
 
-  const totals = useMemo(() => ({
-    reports: data.summary.reduce((sum, row) => sum + Number(row.report_count || 0), 0),
-    positiveLeads: data.summary.reduce((sum, row) => sum + Number(row.numeric_total || 0), 0)
-  }), [data.summary]);
+  const filteredSummary = useMemo(() => {
+    if (!employeeSearch) return data.summary;
+    return data.summary.filter((row) =>
+      row.employee_name.toLowerCase().includes(employeeSearch.toLowerCase())
+    );
+  }, [data.summary, employeeSearch]);
+
+  const filteredDetails = useMemo(() => {
+    if (!employeeSearch) return data.details;
+    return data.details.filter((row) =>
+      row.employee_name.toLowerCase().includes(employeeSearch.toLowerCase())
+    );
+  }, [data.details, employeeSearch]);
+
+  const businessSummary = useMemo(() => {
+    const acc = {};
+    filteredSummary.forEach(row => {
+      const key = row.business_id;
+      if (!acc[key]) {
+        acc[key] = {
+          business_id: row.business_id,
+          business_name: row.business_name,
+          report_count: 0,
+          dialled_total: 0,
+          answered_total: 0,
+          numeric_total: 0,
+          last_report_date: null
+        };
+      }
+      acc[key].report_count += Number(row.report_count || 0);
+      acc[key].dialled_total += Number(row.dialled_total || 0);
+      acc[key].answered_total += Number(row.answered_total || 0);
+      acc[key].numeric_total += Number(row.numeric_total || 0);
+      
+      if (row.last_report_date) {
+        const rowDate = new Date(row.last_report_date);
+        if (!acc[key].last_report_date || rowDate > new Date(acc[key].last_report_date)) {
+          acc[key].last_report_date = row.last_report_date;
+        }
+      }
+    });
+    return Object.values(acc).sort((a, b) => b.numeric_total - a.numeric_total);
+  }, [filteredSummary]);
+
+  const totals = useMemo(() => {
+    let reports = 0;
+    let dialled = 0;
+    let answered = 0;
+    let leads = 0;
+
+    filteredSummary.forEach(row => {
+      reports += Number(row.report_count || 0);
+      dialled += Number(row.dialled_total || 0);
+      answered += Number(row.answered_total || 0);
+      leads += Number(row.numeric_total || 0);
+    });
+
+    const answerRate = dialled > 0 ? Math.round((answered / dialled) * 100) : 0;
+    const leadRate = dialled > 0 ? Math.round((leads / dialled) * 100) : 0;
+
+    return { reports, dialled, answered, leads, answerRate, leadRate };
+  }, [filteredSummary]);
 
   const updateFilter = (name, value) => {
     setFilters((previous) => ({ ...previous, [name]: value }));
   };
 
   const exportCsv = () => {
-    const blob = new Blob([toCsv(data.details)], { type: 'text/csv;charset=utf-8;' });
+    const dataToExport = groupBy === 'employee' ? filteredDetails : businessSummary.map(row => ({
+      report_date: row.last_report_date,
+      employee_name: 'All Employees',
+      business_name: row.business_name,
+      timing_name: 'Consolidated',
+      activity_name: 'All Activities',
+      dialled_total: row.dialled_total,
+      answered_total: row.answered_total,
+      numeric_total: row.numeric_total,
+      answers: []
+    }));
+
+    const blob = new Blob([toCsv(dataToExport)], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'performance-intelligence.csv';
+    link.download = `performance-intelligence-${groupBy}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between px-1">
-        <div>
-          <h2 className="text-xl font-black text-content-primary tracking-tight">{title}</h2>
-          <div className="flex items-center gap-3 mt-1">
-            <span className="text-[10px] font-black uppercase tracking-widest bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded">
-              {totals.reports} Submissions
-            </span>
-            <span className="text-[10px] font-black uppercase tracking-widest bg-brand-secondary/10 text-brand-secondary px-2 py-0.5 rounded">
-              {totals.positiveLeads.toLocaleString()} Positive Leads
-            </span>
+      <div className="flex flex-col gap-4 px-1">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-black text-content-primary tracking-tight">{title}</h2>
+            <p className="text-xs text-content-secondary mt-0.5 uppercase tracking-wider font-bold">Consolidated Performance Overview</p>
+          </div>
+          <Button variant="secondary" className="h-9 text-[11px] font-black uppercase tracking-wider" onClick={exportCsv} disabled={data.details.length === 0}>
+            <Download className="mr-2 h-3.5 w-3.5" />
+            Export Ledger
+          </Button>
+        </div>
+
+        {/* Global KPI Summary Cards */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+          <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md animate-fade-in">
+            <p className="text-[9px] uppercase font-black text-content-muted tracking-wider">Total Volume</p>
+            <p className="text-xl font-black text-content-primary mt-1">{totals.reports} <span className="text-[10px] text-content-secondary font-bold font-sans">Submissions</span></p>
+          </div>
+          <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md animate-fade-in">
+            <p className="text-[9px] uppercase font-black text-content-muted tracking-wider">Total Calls Dialled</p>
+            <p className="text-xl font-black text-content-primary mt-1">{totals.dialled.toLocaleString()} <span className="text-[10px] text-content-secondary font-bold font-sans">Calls</span></p>
+          </div>
+          <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md border-l-2 border-l-brand-secondary animate-fade-in">
+            <p className="text-[9px] uppercase font-black text-brand-secondary/80 tracking-wider">Calls Answered</p>
+            <p className="text-xl font-black text-content-primary mt-1">
+              {totals.answered.toLocaleString()}{' '}
+              <span className="text-xs font-black text-brand-secondary bg-brand-secondary/10 px-1.5 py-0.5 rounded ml-1 font-sans">
+                {totals.answerRate}%
+              </span>
+            </p>
+          </div>
+          <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md border-l-2 border-l-brand-primary animate-fade-in">
+            <p className="text-[9px] uppercase font-black text-brand-primary/80 tracking-wider">Positive Leads</p>
+            <p className="text-xl font-black text-content-primary mt-1">
+              {totals.leads.toLocaleString()}{' '}
+              <span className="text-xs font-black text-brand-primary bg-brand-primary/10 px-1.5 py-0.5 rounded ml-1 font-sans">
+                {totals.leadRate}%
+              </span>
+            </p>
           </div>
         </div>
-        <Button variant="secondary" className="h-9 text-[11px] font-black uppercase tracking-wider" onClick={exportCsv} disabled={data.details.length === 0}>
-          <Download className="mr-2 h-3.5 w-3.5" />
-          Export Ledger
-        </Button>
       </div>
 
       {showFilters && (
         <div className="card border-dark-border/40 bg-dark-surface/40 p-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
             {!lockEmployee && (
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Location</label>
@@ -179,6 +301,18 @@ const PerformanceAnalytics = ({
                   <option value="">Full Team</option>
                   {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
                 </select>
+              </div>
+            )}
+            {!lockEmployee && (
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Search Employee</label>
+                <input
+                  type="text"
+                  placeholder="Type name..."
+                  value={employeeSearch}
+                  onChange={(e) => setEmployeeSearch(e.target.value)}
+                  className="w-full h-8.5 bg-dark-bg border border-dark-border rounded-lg px-3 py-1 text-xs text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors placeholder:text-content-muted/50"
+                />
               </div>
             )}
             <div>
@@ -233,6 +367,14 @@ const PerformanceAnalytics = ({
         </div>
       )}
 
+      {filters.businessId && (
+        <SubmissionStatusTracker
+          businessId={filters.businessId}
+          date={filters.period === 'day' ? filters.date : ''}
+          locationId={filters.locationId}
+        />
+      )}
+
       {loading ? (
         <div className="flex h-72 w-full flex-col items-center justify-center space-y-4 rounded-xl border border-dark-border bg-dark-surface/20">
           <Spinner size="lg" />
@@ -241,35 +383,125 @@ const PerformanceAnalytics = ({
       ) : (
         <>
           <div className="card overflow-hidden px-0 py-0 border-brand-primary/10">
-            <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex items-center gap-2">
-              <TrendingUp size={14} className="text-brand-primary" />
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-content-primary">{summaryLabel}</h3>
+            <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={14} className="text-brand-primary" />
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-content-primary">{summaryLabel}</h3>
+              </div>
+              <div className="flex items-center bg-dark-bg border border-dark-border/60 rounded-lg p-0.5 text-[9px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => setGroupBy('employee')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md transition-all uppercase tracking-wider font-extrabold",
+                    groupBy === 'employee' ? "bg-brand-primary text-white" : "text-content-secondary hover:text-content-primary"
+                  )}
+                >
+                  By Member
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGroupBy('business')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md transition-all uppercase tracking-wider font-extrabold",
+                    groupBy === 'business' ? "bg-brand-primary text-white" : "text-content-secondary hover:text-content-primary"
+                  )}
+                >
+                  By Market Unit
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <Table>
                 <Thead>
-                  <Tr className="bg-dark-bg/20">
-                    <Th className="text-[10px] uppercase tracking-wider">Member</Th>
-                    <Th className="text-[10px] uppercase tracking-wider">Asset/Market</Th>
-                    <Th className="text-[10px] uppercase tracking-wider text-center">Volume</Th>
-                    <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Pos. Leads</Th>
-                    <Th className="text-[10px] uppercase tracking-wider text-right">Latest Log</Th>
-                  </Tr>
+                  {groupBy === 'employee' ? (
+                    <Tr className="bg-dark-bg/20">
+                      <Th className="text-[10px] uppercase tracking-wider">Member</Th>
+                      <Th className="text-[10px] uppercase tracking-wider">Asset/Market</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-center">Volume</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-center">Dialled</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-center">Answered</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-center">Ans. %</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Pos. Leads</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Lead %</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-right">Latest Log</Th>
+                    </Tr>
+                  ) : (
+                    <Tr className="bg-dark-bg/20">
+                      <Th className="text-[10px] uppercase tracking-wider">Market Unit (Business)</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-center">Volume</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-center">Dialled</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-center">Answered</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-center">Ans. %</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Pos. Leads</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Lead %</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-right">Latest Log</Th>
+                    </Tr>
+                  )}
                 </Thead>
                 <Tbody>
-                  {data.summary.map((row) => (
-                    <Tr key={`${row.employee_id}-${row.business_id}`} className="hover:bg-brand-primary/[0.03] transition-colors">
-                      <Td><p className="font-bold text-content-primary text-xs">{row.employee_name}</p></Td>
-                      <Td><p className="text-xs text-content-secondary">{row.business_name}</p></Td>
-                      <Td className="text-center font-mono text-xs">{row.report_count}</Td>
-                      <Td className="text-center"><p className="font-black text-brand-primary text-sm">{Number(row.numeric_total || 0).toLocaleString()}</p></Td>
-                      <Td className="text-right font-mono text-[10px] text-content-muted">
-                        {row.last_report_date ? new Date(row.last_report_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}
-                      </Td>
-                    </Tr>
-                  ))}
-                  {data.summary.length === 0 && (
-                    <Tr><Td colSpan={5} className="py-12 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">No Intelligence Data Available</Td></Tr>
+                  {groupBy === 'employee' ? (
+                    filteredSummary.map((row) => {
+                      const dialled = Number(row.dialled_total || 0);
+                      const answered = Number(row.answered_total || 0);
+                      const leads = Number(row.numeric_total || 0);
+                      const answerRate = dialled > 0 ? Math.round((answered / dialled) * 100) : null;
+                      const leadRate = dialled > 0 ? Math.round((leads / dialled) * 100) : null;
+
+                      return (
+                        <Tr key={`${row.employee_id}-${row.business_id}`} className="hover:bg-brand-primary/[0.03] transition-colors">
+                          <Td><p className="font-bold text-content-primary text-xs">{row.employee_name}</p></Td>
+                          <Td><p className="text-xs text-content-secondary">{row.business_name}</p></Td>
+                          <Td className="text-center font-mono text-xs">{row.report_count}</Td>
+                          <Td className="text-center font-mono text-xs">{dialled}</Td>
+                          <Td className="text-center font-mono text-xs">{answered}</Td>
+                          <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
+                            {answerRate !== null ? `${answerRate}%` : '—'}
+                          </Td>
+                          <Td className="text-center">
+                            <p className="font-black text-brand-primary text-sm">{leads.toLocaleString()}</p>
+                          </Td>
+                          <Td className="text-center font-mono text-xs font-semibold text-brand-primary">
+                            {leadRate !== null ? `${leadRate}%` : '—'}
+                          </Td>
+                          <Td className="text-right font-mono text-[10px] text-content-muted">
+                            {row.last_report_date ? new Date(row.last_report_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}
+                          </Td>
+                        </Tr>
+                      );
+                    })
+                  ) : (
+                    businessSummary.map((row) => {
+                      const dialled = Number(row.dialled_total || 0);
+                      const answered = Number(row.answered_total || 0);
+                      const leads = Number(row.numeric_total || 0);
+                      const answerRate = dialled > 0 ? Math.round((answered / dialled) * 100) : null;
+                      const leadRate = dialled > 0 ? Math.round((leads / dialled) * 100) : null;
+
+                      return (
+                        <Tr key={row.business_id} className="hover:bg-brand-primary/[0.03] transition-colors">
+                          <Td><p className="font-bold text-content-primary text-xs">{row.business_name}</p></Td>
+                          <Td className="text-center font-mono text-xs">{row.report_count}</Td>
+                          <Td className="text-center font-mono text-xs">{dialled}</Td>
+                          <Td className="text-center font-mono text-xs">{answered}</Td>
+                          <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
+                            {answerRate !== null ? `${answerRate}%` : '—'}
+                          </Td>
+                          <Td className="text-center">
+                            <p className="font-black text-brand-primary text-sm">{leads.toLocaleString()}</p>
+                          </Td>
+                          <Td className="text-center font-mono text-xs font-semibold text-brand-primary">
+                            {leadRate !== null ? `${leadRate}%` : '—'}
+                          </Td>
+                          <Td className="text-right font-mono text-[10px] text-content-muted">
+                            {row.last_report_date ? new Date(row.last_report_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}
+                          </Td>
+                        </Tr>
+                      );
+                    })
+                  )}
+                  {((groupBy === 'employee' && filteredSummary.length === 0) || (groupBy === 'business' && businessSummary.length === 0)) && (
+                    <Tr><Td colSpan={groupBy === 'employee' ? 9 : 8} className="py-12 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">No Intelligence Data Available</Td></Tr>
                   )}
                 </Tbody>
               </Table>
@@ -292,7 +524,7 @@ const PerformanceAnalytics = ({
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {data.details.map((row) => (
+                  {filteredDetails.map((row) => (
                     <Tr key={row.id} className="hover:bg-dark-bg/40">
                       <Td className="whitespace-nowrap font-mono text-[10px] text-content-muted">
                         {new Date(row.report_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} <br/>
@@ -315,7 +547,7 @@ const PerformanceAnalytics = ({
                       </Td>
                     </Tr>
                   ))}
-                  {data.details.length === 0 && (
+                  {filteredDetails.length === 0 && (
                     <Tr><Td colSpan={4} className="py-12 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">No Activity Records Found</Td></Tr>
                   )}
                 </Tbody>

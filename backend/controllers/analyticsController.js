@@ -179,6 +179,8 @@ const getPerformance = async (req, res, next) => {
         b.business_name,
         COUNT(DISTINCT er.id)::int AS report_count,
         COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%positive leads%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS numeric_total,
+        COALESCE(SUM(CASE WHEN (ff.field_name ILIKE '%dial%' OR ff.field_name ILIKE '%calls made%' OR ff.field_name ILIKE '%total calls%' OR (ff.field_name ILIKE '%calls%' AND ff.field_name NOT ILIKE '%answer%' AND ff.field_name NOT ILIKE '%positive%' AND ff.field_name NOT ILIKE '%negative%' AND ff.field_name NOT ILIKE '%conversion%')) AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS dialled_total,
+        COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%answer%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS answered_total,
         MIN(er.report_date) AS first_report_date,
         MAX(er.report_date) AS last_report_date
       FROM employee_reports er
@@ -204,6 +206,8 @@ const getPerformance = async (req, res, next) => {
         bt.timing_name,
         at.name AS activity_name,
         COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%positive leads%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS numeric_total,
+        COALESCE(SUM(CASE WHEN (ff.field_name ILIKE '%dial%' OR ff.field_name ILIKE '%calls made%' OR ff.field_name ILIKE '%total calls%' OR (ff.field_name ILIKE '%calls%' AND ff.field_name NOT ILIKE '%answer%' AND ff.field_name NOT ILIKE '%positive%' AND ff.field_name NOT ILIKE '%negative%' AND ff.field_name NOT ILIKE '%conversion%')) AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS dialled_total,
+        COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%answer%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS answered_total,
         COALESCE(
           json_agg(
             json_build_object(
@@ -241,4 +245,134 @@ const getPerformance = async (req, res, next) => {
   }
 };
 
-module.exports = { getOverview, getLeaderboard, getPerformance };
+const getSubmissionStatus = async (req, res, next) => {
+  try {
+    const { businessId, date, locationId } = req.query;
+    if (!businessId) {
+      return res.status(400).json({ success: false, error: 'Business ID is required' });
+    }
+
+    const getLocalDateString = (d = new Date()) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const targetDate = date || getLocalDateString();
+
+    // 1. Fetch all active employees assigned to this business
+    let employeeSql = `
+      SELECT u.id, u.name, u.email, u.phone, u.location_id
+      FROM users u
+      JOIN employee_businesses eb ON u.id = eb.employee_id
+      WHERE eb.business_id = $1 AND u.role = 'EMPLOYEE' AND u.status = 'APPROVED'
+    `;
+    const employeeParams = [businessId];
+    if (locationId) {
+      employeeSql += ` AND u.location_id = $2`;
+      employeeParams.push(locationId);
+    }
+    employeeSql += ` ORDER BY u.name ASC`;
+    const employeesRes = await query(employeeSql, employeeParams);
+
+    // 2. Fetch all timings for this business
+    const timingsRes = await query(
+      `SELECT id, timing_name FROM business_timings WHERE business_id = $1 ORDER BY created_at ASC`,
+      [businessId]
+    );
+
+    // 3. Fetch all reports for this business on targetDate
+    let reportSql = `
+      SELECT er.id, er.employee_id, er.timing_id, er.created_at, er.report_date
+      FROM employee_reports er
+      JOIN users u ON er.employee_id = u.id
+      WHERE er.business_id = $1 AND er.report_date = $2
+    `;
+    const reportParams = [businessId, targetDate];
+    if (locationId) {
+      reportSql += ` AND u.location_id = $3`;
+      reportParams.push(locationId);
+    }
+    const reportsRes = await query(reportSql, reportParams);
+
+    // Helper to parse time slot (e.g. "11:00 AM")
+    const parseTimingString = (str) => {
+      const [time, ampm] = str.split(' ');
+      let [h, m] = time.split(':').map(Number);
+      if (ampm === 'PM' && h !== 12) h += 12;
+      if (ampm === 'AM' && h === 12) h = 0;
+      return { hours: h, minutes: m };
+    };
+
+    // Sort timings chronologically in JS
+    const sortedTimings = [...timingsRes.rows].sort((a, b) => {
+      const ta = parseTimingString(a.timing_name);
+      const tb = parseTimingString(b.timing_name);
+      return (ta.hours * 60 + ta.minutes) - (tb.hours * 60 + tb.minutes);
+    });
+
+    const now = new Date();
+
+    // Map submissions for easy lookup: employeeId -> timingId -> report
+    const submissionMap = {};
+    for (const rep of reportsRes.rows) {
+      if (!submissionMap[rep.employee_id]) {
+        submissionMap[rep.employee_id] = {};
+      }
+      submissionMap[rep.employee_id][rep.timing_id] = rep;
+    }
+
+    // Prepare status matrix
+    const matrix = employeesRes.rows.map(emp => {
+      const rowTimings = sortedTimings.map(t => {
+        const submission = submissionMap[emp.id]?.[t.id];
+        let status = 'PENDING'; // default
+        let submittedAt = null;
+
+        const { hours, minutes } = parseTimingString(t.timing_name);
+        const [yr, mo, dy] = targetDate.split('-').map(Number);
+        const dueTime = new Date(yr, mo - 1, dy, hours, minutes, 0, 0);
+
+        if (submission) {
+          submittedAt = submission.created_at; // Date object
+          const submittedDate = new Date(submittedAt);
+          if (submittedDate <= dueTime) {
+            status = 'ON_TIME';
+          } else {
+            status = 'LATE';
+          }
+        } else {
+          // If no submission, check if timing has crossed
+          if (now > dueTime) {
+            status = 'MISSING';
+          } else {
+            status = 'PENDING';
+          }
+        }
+
+        return {
+          timingId: t.id,
+          timingName: t.timing_name,
+          status,
+          submittedAt
+        };
+      });
+
+      return {
+        employeeId: emp.id,
+        employeeName: emp.name,
+        timings: rowTimings
+      };
+    });
+
+    return successResponse(res, {
+      timings: sortedTimings,
+      matrix
+    }, 'Submission status fetched successfully');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getOverview, getLeaderboard, getPerformance, getSubmissionStatus };
