@@ -256,6 +256,44 @@ const SubmitReport = () => {
           </div>
 
           {selectedBusiness && (
+            <div className="rounded-xl border border-brand-warning/30 bg-brand-warning/5 p-4 flex items-start gap-3 text-brand-warning animate-fade-in">
+              <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5 text-brand-warning" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wide">Reporting Period Reminder</p>
+                <p className="text-xs text-content-secondary mt-1">
+                  {selectedTiming ? (
+                    (() => {
+                      const parseTime = (timeStr) => {
+                        try {
+                          const [time, ampm] = timeStr.split(' ');
+                          let [h, m] = time.split(':').map(Number);
+                          if (ampm === 'PM' && h !== 12) h += 12;
+                          if (ampm === 'AM' && h === 12) h = 0;
+                          return h * 60 + m;
+                        } catch (e) {
+                          return 0;
+                        }
+                      };
+                      const sortedTimings = [...timings].sort((a, b) => parseTime(a.timing_name) - parseTime(b.timing_name));
+                      const selectedIndex = sortedTimings.findIndex(t => t.id === selectedTiming);
+                      const selectedTimingObj = sortedTimings[selectedIndex];
+                      if (selectedIndex > 0) {
+                        const prevTimingObj = sortedTimings[selectedIndex - 1];
+                        return `Please report only the callings and activities done between ${prevTimingObj.timing_name} and ${selectedTimingObj.timing_name}. Do NOT include any callings or activities done before ${prevTimingObj.timing_name}.`;
+                      } else if (selectedIndex === 0) {
+                        return `Please report only the callings and activities done today up to ${selectedTimingObj.timing_name}. Do NOT include any previous days' activities.`;
+                      }
+                      return 'Please report only the activities done within this scheduled time slot interval. Do not include activities from before this slot.';
+                    })()
+                  ) : (
+                    'Please report only the activities performed between your previous time slot and the selected time slot. Do not include cumulative numbers.'
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {selectedBusiness && (
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-content-muted mb-1.5 ml-1">Activity Type</label>
               <select 
