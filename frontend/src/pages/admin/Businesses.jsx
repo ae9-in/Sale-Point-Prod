@@ -465,7 +465,7 @@ const Businesses = () => {
                   </h3>
                   
                   <form onSubmit={handleSetBusinessTarget} className="space-y-4">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 items-end">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-[1.4fr_0.8fr_1.1fr_1.1fr_1.4fr_1fr] items-end">
                       <Input
                         label="Metric"
                         value={businessTarget.targetName}
@@ -512,7 +512,7 @@ const Businesses = () => {
                         </button>
 
                         {showEmployeeDropdown && (
-                          <div className="absolute z-20 w-full mt-1 bg-dark-surface border border-dark-border rounded-lg shadow-xl max-h-48 overflow-y-auto p-2 space-y-1 animate-fade-in">
+                          <div className="absolute z-20 min-w-full w-60 md:w-64 mt-1 bg-dark-surface border border-dark-border rounded-lg shadow-xl max-h-48 overflow-y-auto p-2 space-y-1 animate-fade-in left-0">
                             {assignedEmployees.length === 0 ? (
                               <p className="text-xs text-content-muted italic p-2">No employees assigned</p>
                             ) : (
