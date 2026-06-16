@@ -9,6 +9,23 @@ import Input from '../../components/ui/Input';
 import Spinner from '../../components/ui/Spinner';
 import { MessageSquare, Clock, AlertCircle } from 'lucide-react';
 
+const isTimeCrossed = (timingName) => {
+  if (!timingName) return false;
+  try {
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    
+    const [time, ampm] = timingName.split(' ');
+    let [h, m] = time.split(':').map(Number);
+    if (ampm === 'PM' && h !== 12) h += 12;
+    if (ampm === 'AM' && h === 12) h = 0;
+    
+    return h * 60 + m < currentMinutes;
+  } catch (e) {
+    return false;
+  }
+};
+
 const SubmitReport = () => {
   const { user } = useAuthStore();
   const location = useLocation();
@@ -50,6 +67,12 @@ const SubmitReport = () => {
     const sorted = [...activeTimings].sort((a, b) => parseTime(a.timing_name) - parseTime(b.timing_name));
     return sorted.find(t => parseTime(t.timing_name) > currentMinutes) || sorted[0];
   }, [selectedBusiness, timings, todaySubmissions]);
+
+  const isSelectedOverdue = useMemo(() => {
+    if (!selectedTiming) return false;
+    const tObj = timings.find(t => t.id === selectedTiming);
+    return tObj ? isTimeCrossed(tObj.timing_name) : false;
+  }, [selectedTiming, timings]);
 
   useEffect(() => {
     const fetchBusinesses = async () => {
@@ -250,7 +273,11 @@ const SubmitReport = () => {
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-content-muted mb-1.5 ml-1">Timing</label>
                 <select 
-                  className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 py-2 text-sm text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors"
+                  className={`w-full bg-dark-bg border rounded-lg px-4 py-2 text-sm outline-none transition-colors ${
+                    isSelectedOverdue 
+                      ? 'text-brand-danger border-brand-danger/50 focus:border-brand-danger focus:ring-1 focus:ring-brand-danger' 
+                      : 'text-content-primary border-dark-border focus:border-brand-primary focus:ring-1 focus:ring-brand-primary'
+                  }`}
                   value={selectedTiming}
                   onChange={(e) => setSelectedTiming(e.target.value)}
                   required
@@ -258,9 +285,29 @@ const SubmitReport = () => {
                   <option value="">Select timing...</option>
                   {timings.map(t => {
                     const isSubmitted = todaySubmissions.includes(t.id);
+                    const crossed = isTimeCrossed(t.timing_name);
+                    
+                    let label = t.timing_name;
+                    let style = {};
+                    let className = "";
+                    
+                    if (isSubmitted) {
+                      label += " (Submitted)";
+                    } else if (crossed) {
+                      label += " (Overdue)";
+                      style = { color: '#ef4444' };
+                      className = "text-brand-danger";
+                    }
+                    
                     return (
-                      <option key={t.id} value={t.id} disabled={isSubmitted}>
-                        {t.timing_name} {isSubmitted ? '(Submitted)' : ''}
+                      <option 
+                        key={t.id} 
+                        value={t.id} 
+                        disabled={isSubmitted}
+                        style={style}
+                        className={className}
+                      >
+                        {label}
                       </option>
                     );
                   })}
