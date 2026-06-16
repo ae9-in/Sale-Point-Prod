@@ -6,7 +6,7 @@ import Input from '../../components/ui/Input';
 import Spinner from '../../components/ui/Spinner';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../../components/ui/Table';
 import toast from 'react-hot-toast';
-import { Building2, Clock, FileText, Plus, Target, Trash2, UserPlus, Users } from 'lucide-react';
+import { Building2, Clock, FileText, Plus, Target, Trash2, UserPlus, Users, ChevronDown } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 const emptyBusiness = { businessName: '', description: '' };
@@ -35,6 +35,7 @@ const Businesses = () => {
   const [templateLoading, setTemplateLoading] = useState(false);
   const [assignToAll, setAssignToAll] = useState(true);
   const [selectedTargetEmployeeIds, setSelectedTargetEmployeeIds] = useState([]);
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
 
   const selectedBusiness = useMemo(
     () => businesses.find((business) => business.id === selectedBusinessId),
@@ -78,6 +79,7 @@ const Businesses = () => {
       setAssignEmployeeId('');
       setAssignToAll(true);
       setSelectedTargetEmployeeIds([]);
+      setShowEmployeeDropdown(false);
 
       const fields = {};
       await Promise.all(activitiesRes.data.data.map(async (activity) => {
@@ -301,6 +303,7 @@ const Businesses = () => {
       setBusinessTarget(emptyBusinessTarget);
       setSelectedTargetEmployeeIds([]);
       setAssignToAll(true);
+      setShowEmployeeDropdown(false);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to set target');
     }
@@ -494,38 +497,53 @@ const Businesses = () => {
                       </div>
 
                       {!assignToAll && (
-                        <div className="rounded-xl border border-dark-border bg-dark-bg/30 p-4 space-y-2.5 animate-fade-in">
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-content-muted">Select Target Employees</p>
-                          {assignedEmployees.length === 0 ? (
-                            <p className="text-xs text-content-muted italic">No employees assigned to this business yet</p>
-                          ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
-                              {assignedEmployees.map((emp) => {
-                                const isChecked = selectedTargetEmployeeIds.includes(emp.id);
-                                return (
-                                  <label 
-                                    key={emp.id} 
-                                    className={cn(
-                                      "flex items-center gap-2 rounded-lg border border-dark-border p-2.5 text-xs text-content-secondary cursor-pointer transition hover:bg-dark-bg/50",
-                                      isChecked && "border-brand-primary bg-brand-primary/5 text-content-primary"
-                                    )}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedTargetEmployeeIds([...selectedTargetEmployeeIds, emp.id]);
-                                        } else {
-                                          setSelectedTargetEmployeeIds(selectedTargetEmployeeIds.filter(id => id !== emp.id));
-                                        }
-                                      }}
-                                      className="h-3.5 w-3.5 rounded border-dark-border bg-dark-bg text-brand-primary focus:ring-brand-primary"
-                                    />
-                                    <span className="truncate font-medium">{emp.name}</span>
-                                  </label>
-                                );
-                              })}
+                        <div className="relative space-y-1">
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted">Target Employees</label>
+                          <button
+                            type="button"
+                            onClick={() => setShowEmployeeDropdown(!showEmployeeDropdown)}
+                            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary text-sm flex items-center justify-between hover:border-brand-primary/50 transition-colors h-10"
+                          >
+                            <span>
+                              {selectedTargetEmployeeIds.length === 0 
+                                ? 'No employees selected' 
+                                : `${selectedTargetEmployeeIds.length} employee${selectedTargetEmployeeIds.length > 1 ? 's' : ''} selected`}
+                            </span>
+                            <ChevronDown className={cn("h-4 w-4 text-content-muted transition-transform", showEmployeeDropdown && "rotate-180")} />
+                          </button>
+
+                          {showEmployeeDropdown && (
+                            <div className="absolute z-10 w-full mt-1 bg-dark-surface border border-dark-border rounded-lg shadow-xl max-h-48 overflow-y-auto p-2 space-y-1 animate-fade-in">
+                              {assignedEmployees.length === 0 ? (
+                                <p className="text-xs text-content-muted italic p-2">No employees assigned to this business yet</p>
+                              ) : (
+                                assignedEmployees.map((emp) => {
+                                  const isChecked = selectedTargetEmployeeIds.includes(emp.id);
+                                  return (
+                                    <label
+                                      key={emp.id}
+                                      className={cn(
+                                        "flex items-center gap-2 rounded px-2.5 py-1.5 text-xs text-content-secondary cursor-pointer hover:bg-dark-bg/60 transition",
+                                        isChecked && "text-content-primary font-medium"
+                                      )}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedTargetEmployeeIds([...selectedTargetEmployeeIds, emp.id]);
+                                          } else {
+                                            setSelectedTargetEmployeeIds(selectedTargetEmployeeIds.filter(id => id !== emp.id));
+                                          }
+                                        }}
+                                        className="h-3.5 w-3.5 rounded border-dark-border bg-dark-bg text-brand-primary focus:ring-brand-primary"
+                                      />
+                                      <span className="truncate">{emp.name}</span>
+                                    </label>
+                                  );
+                                })
+                              )}
                             </div>
                           )}
                         </div>
