@@ -16,6 +16,7 @@ const SubmitReport = () => {
   const [timings, setTimings] = useState([]);
   const [activityTypes, setActivityTypes] = useState([]);
   const [fields, setFields] = useState([]);
+  const [todaySubmissions, setTodaySubmissions] = useState([]);
   
   const [selectedBusiness, setSelectedBusiness] = useState('');
   const [selectedTiming, setSelectedTiming] = useState('');
@@ -43,9 +44,12 @@ const SubmitReport = () => {
       return h * 60 + m;
     };
 
-    const sorted = [...timings].sort((a, b) => parseTime(a.timing_name) - parseTime(b.timing_name));
+    const activeTimings = timings.filter(t => !todaySubmissions.includes(t.id));
+    if (!activeTimings.length) return null;
+
+    const sorted = [...activeTimings].sort((a, b) => parseTime(a.timing_name) - parseTime(b.timing_name));
     return sorted.find(t => parseTime(t.timing_name) > currentMinutes) || sorted[0];
-  }, [selectedBusiness, timings]);
+  }, [selectedBusiness, timings, todaySubmissions]);
 
   useEffect(() => {
     const fetchBusinesses = async () => {
@@ -73,16 +77,20 @@ const SubmitReport = () => {
 
   useEffect(() => {
     if (!selectedBusiness) {
-      setTimings([]); setActivityTypes([]); setFields([]); return;
+      setTimings([]); setActivityTypes([]); setFields([]); setTodaySubmissions([]); return;
     }
     const fetchBizData = async () => {
       try {
-        const [timingsRes, activitiesRes] = await Promise.all([
+        const todayStr = new Date().toLocaleDateString('en-CA');
+        const [timingsRes, activitiesRes, submissionsRes] = await Promise.all([
           axios.get(`/businesses/${selectedBusiness}/timings`),
-          axios.get(`/businesses/${selectedBusiness}/activity-types`)
+          axios.get(`/businesses/${selectedBusiness}/activity-types`),
+          axios.get(`/reports?businessId=${selectedBusiness}&date=${todayStr}`)
         ]);
         setTimings(timingsRes.data.data);
         setActivityTypes(activitiesRes.data.data);
+        const submittedTimingIds = submissionsRes.data.data.map(r => r.timing_id);
+        setTodaySubmissions(submittedTimingIds);
       } catch (err) {
         toast.error('Failed to load business details');
       }
@@ -121,6 +129,7 @@ const SubmitReport = () => {
       });
 
       toast.success('Report submitted successfully!');
+      setTodaySubmissions(prev => [...prev, selectedTiming]);
       reset();
       setSelectedActivity('');
       setSelectedTiming('');
@@ -247,9 +256,14 @@ const SubmitReport = () => {
                   required
                 >
                   <option value="">Select timing...</option>
-                  {timings.map(t => (
-                    <option key={t.id} value={t.id}>{t.timing_name}</option>
-                  ))}
+                  {timings.map(t => {
+                    const isSubmitted = todaySubmissions.includes(t.id);
+                    return (
+                      <option key={t.id} value={t.id} disabled={isSubmitted}>
+                        {t.timing_name} {isSubmitted ? '(Submitted)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             )}

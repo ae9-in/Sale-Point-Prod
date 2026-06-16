@@ -10,6 +10,15 @@ const submitReport = async (req, res, next) => {
     const assignRes = await query('SELECT * FROM employee_businesses WHERE employee_id = $1 AND business_id = $2', [employeeId, businessId]);
     if (assignRes.rows.length === 0) return errorResponse(res, 'Not assigned to this business', 403);
 
+    // Check if report already submitted today for this timing slot
+    const dupRes = await query(
+      'SELECT id FROM employee_reports WHERE employee_id = $1 AND business_id = $2 AND timing_id = $3 AND report_date = CURRENT_DATE',
+      [employeeId, businessId, timingId]
+    );
+    if (dupRes.rows.length > 0) {
+      return errorResponse(res, 'You have already submitted a report for this time slot today', 400);
+    }
+
     // Create report header
     const reportRes = await query(
       'INSERT INTO employee_reports (employee_id, business_id, timing_id, activity_type_id) VALUES ($1, $2, $3, $4) RETURNING id',
