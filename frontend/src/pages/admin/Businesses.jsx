@@ -458,7 +458,7 @@ const Businesses = () => {
                   </div>
                 </div>
 
-                <div className="card motion-card motion-sheen p-5">
+                <div className="card motion-card p-5">
                   <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-content-primary">
                     <Target className="h-4 w-4 text-brand-success" />
                     Set Target For This Business
