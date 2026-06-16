@@ -17,7 +17,8 @@ const Reports = () => {
     employeeId: '',
     businessId: '',
     date: '',
-    locationId: ''
+    locationId: '',
+    activityType: ''
   });
   
   const [loading, setLoading] = useState(true);
@@ -56,6 +57,7 @@ const Reports = () => {
       if (filters.businessId) queryParams.push(`businessId=${filters.businessId}`);
       if (filters.date) queryParams.push(`date=${filters.date}`);
       if (filters.locationId) queryParams.push(`locationId=${filters.locationId}`);
+      if (filters.activityType) queryParams.push(`activityType=${filters.activityType}`);
       
       const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
       const res = await axios.get(`/reports${queryString}`);
@@ -79,7 +81,8 @@ const Reports = () => {
       employeeId: '',
       businessId: '',
       date: '',
-      locationId: ''
+      locationId: '',
+      activityType: ''
     });
   };
 
@@ -130,7 +133,7 @@ const Reports = () => {
       </div>
 
       {/* Filters Bar */}
-      <div className="card motion-card motion-sheen p-5 bg-dark-surface/50 border border-dark-border grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+      <div className="card motion-card motion-sheen p-5 bg-dark-surface/50 border border-dark-border grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
         <div>
           <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Filter Location</label>
           <select
@@ -171,6 +174,20 @@ const Reports = () => {
         </div>
 
         <div>
+          <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Filter Activity Type</label>
+          <select
+            name="activityType"
+            value={filters.activityType}
+            onChange={handleFilterChange}
+            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm transition-colors"
+          >
+            <option value="">All Activities</option>
+            <option value="Callings">Callings</option>
+            <option value="Fields">Field Visits</option>
+          </select>
+        </div>
+
+        <div>
           <Input 
             label="Filter Date" 
             name="date"
@@ -185,7 +202,7 @@ const Reports = () => {
             variant="secondary" 
             className="w-full"
             onClick={handleClearFilters}
-            disabled={!filters.employeeId && !filters.businessId && !filters.date && !filters.locationId}
+            disabled={!filters.employeeId && !filters.businessId && !filters.date && !filters.locationId && !filters.activityType}
           >
             Clear Filters
           </Button>

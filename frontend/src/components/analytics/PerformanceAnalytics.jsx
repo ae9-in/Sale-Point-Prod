@@ -14,6 +14,7 @@ const buildParams = (filters) => {
   if (filters.employeeId) params.employeeId = filters.employeeId;
   if (filters.businessId) params.businessId = filters.businessId;
   if (filters.locationId) params.locationId = filters.locationId;
+  if (filters.activityType) params.activityType = filters.activityType;
   if (filters.sortBy) params.sortBy = filters.sortBy;
   if (filters.sortDir) params.sortDir = filters.sortDir;
 
@@ -69,6 +70,7 @@ const PerformanceAnalytics = ({
     employeeId: initialEmployeeId,
     businessId: initialBusinessId,
     locationId: '',
+    activityType: '',
     period: 'day',
     date: new Date().toISOString().slice(0, 10),
     week: '',
@@ -179,6 +181,14 @@ const PerformanceAnalytics = ({
                 </select>
               </div>
             )}
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Activity Type</label>
+              <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.activityType} onChange={(e) => updateFilter('activityType', e.target.value)}>
+                <option value="">All Activities</option>
+                <option value="Callings">Callings</option>
+                <option value="Fields">Field Visits</option>
+              </select>
+            </div>
             {!lockBusiness && (
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Market Unit</label>

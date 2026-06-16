@@ -12,6 +12,7 @@ const Analytics = () => {
   const [loading, setLoading] = useState(true);
   const [locations, setLocations] = useState([]);
   const [selectedLocationId, setSelectedLocationId] = useState('');
+  const [selectedActivityType, setSelectedActivityType] = useState('');
 
   useEffect(() => {
     fetchInitialData();
@@ -19,7 +20,7 @@ const Analytics = () => {
 
   useEffect(() => {
     fetchAnalyticsData();
-  }, [selectedLocationId]);
+  }, [selectedLocationId, selectedActivityType]);
 
   const fetchInitialData = async () => {
     try {
@@ -33,7 +34,11 @@ const Analytics = () => {
   const fetchAnalyticsData = async () => {
     try {
       setLoading(true);
-      const queryString = selectedLocationId ? `?locationId=${selectedLocationId}` : '';
+      const queryParams = [];
+      if (selectedLocationId) queryParams.push(`locationId=${selectedLocationId}`);
+      if (selectedActivityType) queryParams.push(`activityType=${selectedActivityType}`);
+      const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+      
       const res = await axios.get(`/reports${queryString}`);
       setReports(res.data.data);
     } catch (err) {
@@ -105,17 +110,31 @@ const Analytics = () => {
           </p>
         </div>
 
-        <div className="w-full sm:w-48">
-          <select
-            value={selectedLocationId}
-            onChange={(e) => setSelectedLocationId(e.target.value)}
-            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm transition-colors"
-          >
-            <option value="">All Locations</option>
-            {locations.map(loc => (
-              <option key={loc.id} value={loc.id}>{loc.name}</option>
-            ))}
-          </select>
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <div className="w-full sm:w-48">
+            <select
+              value={selectedLocationId}
+              onChange={(e) => setSelectedLocationId(e.target.value)}
+              className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm transition-colors"
+            >
+              <option value="">All Locations</option>
+              {locations.map(loc => (
+                <option key={loc.id} value={loc.id}>{loc.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="w-full sm:w-48">
+            <select
+              value={selectedActivityType}
+              onChange={(e) => setSelectedActivityType(e.target.value)}
+              className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm transition-colors"
+            >
+              <option value="">All Activities</option>
+              <option value="Callings">Callings</option>
+              <option value="Fields">Field Visits</option>
+            </select>
+          </div>
         </div>
       </div>
 

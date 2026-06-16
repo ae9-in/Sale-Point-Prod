@@ -118,6 +118,7 @@ const getPerformance = async (req, res, next) => {
       year,
       week,
       locationId,
+      activityType,
       sortBy = 'report_date',
       sortDir = 'desc'
     } = req.query;
@@ -142,6 +143,17 @@ const getPerformance = async (req, res, next) => {
     if (locationId) {
       conditions.push(`u.location_id = $${paramIndex++}`);
       params.push(locationId);
+    }
+
+    if (activityType) {
+      if (activityType === 'Callings') {
+        conditions.push(`at.name ILIKE '%calling%'`);
+      } else if (activityType === 'Fields') {
+        conditions.push(`(at.name ILIKE '%field%' OR at.name ILIKE '%visit%')`);
+      } else {
+        conditions.push(`at.name = $${paramIndex++}`);
+        params.push(activityType);
+      }
     }
 
     const dateWhere = buildDateWhere(params, { date, fromDate, toDate, month, year, week });
@@ -172,6 +184,7 @@ const getPerformance = async (req, res, next) => {
       FROM employee_reports er
       JOIN users u ON er.employee_id = u.id
       JOIN businesses b ON er.business_id = b.id
+      JOIN activity_types at ON er.activity_type_id = at.id
       LEFT JOIN report_answers ra ON er.id = ra.report_id
       LEFT JOIN form_fields ff ON ra.field_id = ff.id
       ${where}
