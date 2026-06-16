@@ -21,11 +21,18 @@ const Employees = () => {
   const [formData, setFormData] = useState(emptyForm);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [assignBusinessId, setAssignBusinessId] = useState('');
 
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.id === selectedEmployeeId),
     [employees, selectedEmployeeId]
   );
+
+  const unassignedBusinesses = useMemo(() => {
+    return businesses.filter(
+      (biz) => !assignedBusinesses.some((assigned) => assigned.id === biz.id)
+    );
+  }, [businesses, assignedBusinesses]);
 
   const fetchEmployees = async () => {
     const res = await axios.get('/admin/users?status=APPROVED');
@@ -56,6 +63,7 @@ const Employees = () => {
       setDetailLoading(true);
       const res = await axios.get(`/admin/employees/${employeeId}/businesses`);
       setAssignedBusinesses(res.data.data);
+      setAssignBusinessId('');
     } catch (err) {
       toast.error('Failed to load employee details');
     } finally {
@@ -86,6 +94,33 @@ const Employees = () => {
       setSelectedEmployeeId(res.data.data.id);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to create employee');
+    }
+  };
+
+  const handleAssignBusiness = async () => {
+    if (!assignBusinessId || !selectedEmployeeId) return;
+    try {
+      await axios.post('/admin/assign', { 
+        employeeId: selectedEmployeeId, 
+        businessId: assignBusinessId 
+      });
+      toast.success('Business assigned successfully');
+      fetchEmployeeDetails(selectedEmployeeId);
+      fetchEmployees();
+    } catch (err) {
+      toast.error('Failed to assign business');
+    }
+  };
+
+  const handleUnassignBusiness = async (businessId) => {
+    if (!confirm('Unassign this business from the employee?')) return;
+    try {
+      await axios.delete(`/admin/assign/${selectedEmployeeId}/${businessId}`);
+      toast.success('Business unassigned successfully');
+      fetchEmployeeDetails(selectedEmployeeId);
+      fetchEmployees();
+    } catch (err) {
+      toast.error('Failed to unassign business');
     }
   };
 
@@ -223,22 +258,62 @@ const Employees = () => {
               <div className="border-b border-dark-border px-5 py-4">
                 <h3 className="flex items-center gap-2 font-semibold text-content-primary"><Briefcase className="h-4 w-4 text-brand-primary" /> Assigned Businesses</h3>
               </div>
+              
+              <div className="p-4 border-b border-dark-border/50 bg-dark-bg/20 flex flex-col sm:flex-row gap-3 items-end">
+                <div className="flex-1 space-y-1">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted">Assign Business</label>
+                  <select 
+                    className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm h-10 transition-colors" 
+                    value={assignBusinessId} 
+                    onChange={(e) => setAssignBusinessId(e.target.value)}
+                  >
+                    <option value="">Select business to assign...</option>
+                    {unassignedBusinesses.map((biz) => (
+                      <option key={biz.id} value={biz.id}>{biz.business_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <Button 
+                  onClick={handleAssignBusiness} 
+                  disabled={!assignBusinessId}
+                  className="h-10 px-6 font-bold"
+                >
+                  <Plus className="mr-1.5 h-4 w-4" /> Assign
+                </Button>
+              </div>
+
               {detailLoading ? (
                 <div className="flex h-32 items-center justify-center">
                   <Spinner />
                 </div>
               ) : (
                 <Table>
-                  <Thead><Tr><Th>Business</Th><Th>Description</Th><Th>Created</Th></Tr></Thead>
+                  <Thead>
+                    <Tr>
+                      <Th>Business</Th>
+                      <Th>Description</Th>
+                      <Th>Created</Th>
+                      <Th className="text-right">Action</Th>
+                    </Tr>
+                  </Thead>
                   <Tbody>
                     {assignedBusinesses.map((business) => (
                       <Tr key={business.id}>
                         <Td className="font-semibold text-content-primary">{business.business_name}</Td>
                         <Td>{business.description || '-'}</Td>
                         <Td>{new Date(business.created_at).toLocaleDateString()}</Td>
+                        <Td className="text-right">
+                          <button 
+                            onClick={() => handleUnassignBusiness(business.id)} 
+                            className="text-content-muted hover:text-brand-danger transition-colors p-1"
+                            title="Unassign Business"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </Td>
                       </Tr>
                     ))}
-                    {assignedBusinesses.length === 0 && <Tr><Td colSpan={3} className="py-8 text-center text-content-muted">No businesses assigned.</Td></Tr>}
+                    {assignedBusinesses.length === 0 && <Tr><Td colSpan={4} className="py-8 text-center text-content-muted">No businesses assigned.</Td></Tr>}
                   </Tbody>
                 </Table>
               )}

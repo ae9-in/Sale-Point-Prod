@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from '../../api/axiosInstance';
 import PerformanceAnalytics from '../../components/analytics/PerformanceAnalytics';
 import Button from '../../components/ui/Button';
@@ -33,6 +33,8 @@ const Businesses = () => {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [templateLoading, setTemplateLoading] = useState(false);
+  const [assignToAll, setAssignToAll] = useState(true);
+  const [selectedTargetEmployeeIds, setSelectedTargetEmployeeIds] = useState([]);
 
   const selectedBusiness = useMemo(
     () => businesses.find((business) => business.id === selectedBusinessId),
@@ -74,6 +76,8 @@ const Businesses = () => {
       setActivityTypes(activitiesRes.data.data);
       setSelectedEmployeeId('');
       setAssignEmployeeId('');
+      setAssignToAll(true);
+      setSelectedTargetEmployeeIds([]);
 
       const fields = {};
       await Promise.all(activitiesRes.data.data.map(async (activity) => {
@@ -279,18 +283,26 @@ const Businesses = () => {
       return;
     }
 
+    if (!assignToAll && selectedTargetEmployeeIds.length === 0) {
+      toast.error('Please select at least one employee or choose to assign to all');
+      return;
+    }
+
     try {
       await axios.post('/targets/business', {
         businessId: selectedBusinessId,
         targetName,
         targetValue: Number(targetValue),
         startDate,
-        endDate
+        endDate,
+        employeeIds: assignToAll ? [] : selectedTargetEmployeeIds
       });
-      toast.success('Target assigned to all employees in this business');
+      toast.success(assignToAll ? 'Target assigned to all employees' : 'Target assigned to selected employees');
       setBusinessTarget(emptyBusinessTarget);
+      setSelectedTargetEmployeeIds([]);
+      setAssignToAll(true);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to set business target');
+      toast.error(err.response?.data?.error || 'Failed to set target');
     }
   };
 
@@ -437,37 +449,93 @@ const Businesses = () => {
                     <Target className="h-4 w-4 text-brand-success" />
                     Set Target For This Business
                   </h3>
-                  <p className="mb-4 text-sm text-content-secondary">
-                    This creates the same target for every employee assigned to {selectedBusiness.business_name}.
-                  </p>
-                  <form onSubmit={handleSetBusinessTarget} className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-                    <Input
-                      label="Metric"
-                      value={businessTarget.targetName}
-                      onChange={(event) => setBusinessTarget({ ...businessTarget, targetName: event.target.value })}
-                      placeholder="Calls Made"
-                    />
-                    <Input
-                      label="Value"
-                      type="number"
-                      value={businessTarget.targetValue}
-                      onChange={(event) => setBusinessTarget({ ...businessTarget, targetValue: event.target.value })}
-                      placeholder="100"
-                    />
-                    <Input
-                      label="Start"
-                      type="date"
-                      value={businessTarget.startDate}
-                      onChange={(event) => setBusinessTarget({ ...businessTarget, startDate: event.target.value })}
-                    />
-                    <Input
-                      label="End"
-                      type="date"
-                      value={businessTarget.endDate}
-                      onChange={(event) => setBusinessTarget({ ...businessTarget, endDate: event.target.value })}
-                    />
-                    <div className="flex items-end">
-                      <Button type="submit" className="w-full">Set For All</Button>
+                  
+                  <form onSubmit={handleSetBusinessTarget} className="space-y-4">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <Input
+                        label="Metric"
+                        value={businessTarget.targetName}
+                        onChange={(event) => setBusinessTarget({ ...businessTarget, targetName: event.target.value })}
+                        placeholder="Calls Made"
+                      />
+                      <Input
+                        label="Value"
+                        type="number"
+                        value={businessTarget.targetValue}
+                        onChange={(event) => setBusinessTarget({ ...businessTarget, targetValue: event.target.value })}
+                        placeholder="100"
+                      />
+                      <Input
+                        label="Start"
+                        type="date"
+                        value={businessTarget.startDate}
+                        onChange={(event) => setBusinessTarget({ ...businessTarget, startDate: event.target.value })}
+                      />
+                      <Input
+                        label="End"
+                        type="date"
+                        value={businessTarget.endDate}
+                        onChange={(event) => setBusinessTarget({ ...businessTarget, endDate: event.target.value })}
+                      />
+                    </div>
+
+                    <div className="border-t border-dark-border/40 pt-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          id="assignToAll"
+                          type="checkbox"
+                          checked={assignToAll}
+                          onChange={(e) => setAssignToAll(e.target.checked)}
+                          className="h-4 w-4 rounded border-dark-border bg-dark-bg text-brand-primary focus:ring-brand-primary"
+                        />
+                        <label htmlFor="assignToAll" className="text-xs font-semibold text-content-primary uppercase tracking-wider cursor-pointer">
+                          Assign target to all employees in this business
+                        </label>
+                      </div>
+
+                      {!assignToAll && (
+                        <div className="rounded-xl border border-dark-border bg-dark-bg/30 p-4 space-y-2.5 animate-fade-in">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-content-muted">Select Target Employees</p>
+                          {assignedEmployees.length === 0 ? (
+                            <p className="text-xs text-content-muted italic">No employees assigned to this business yet</p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                              {assignedEmployees.map((emp) => {
+                                const isChecked = selectedTargetEmployeeIds.includes(emp.id);
+                                return (
+                                  <label 
+                                    key={emp.id} 
+                                    className={cn(
+                                      "flex items-center gap-2 rounded-lg border border-dark-border p-2.5 text-xs text-content-secondary cursor-pointer transition hover:bg-dark-bg/50",
+                                      isChecked && "border-brand-primary bg-brand-primary/5 text-content-primary"
+                                    )}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedTargetEmployeeIds([...selectedTargetEmployeeIds, emp.id]);
+                                        } else {
+                                          setSelectedTargetEmployeeIds(selectedTargetEmployeeIds.filter(id => id !== emp.id));
+                                        }
+                                      }}
+                                      className="h-3.5 w-3.5 rounded border-dark-border bg-dark-bg text-brand-primary focus:ring-brand-primary"
+                                    />
+                                    <span className="truncate font-medium">{emp.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <Button type="submit" disabled={assignedEmployees.length === 0}>
+                        Set Target
+                      </Button>
                     </div>
                   </form>
                 </div>

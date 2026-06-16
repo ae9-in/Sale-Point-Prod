@@ -42,26 +42,32 @@ const createTarget = async (req, res, next) => {
 
 const createBusinessTarget = async (req, res, next) => {
   try {
-    const { businessId, targetName, targetValue, startDate, endDate } = req.body;
-    const employeesRes = await query(
-      'SELECT employee_id FROM employee_businesses WHERE business_id = $1',
-      [businessId]
-    );
-
-    if (employeesRes.rows.length === 0) {
-      return errorResponse(res, 'No employees assigned to this business', 400);
+    const { businessId, targetName, targetValue, startDate, endDate, employeeIds } = req.body;
+    
+    let targetEmployees = [];
+    if (employeeIds && Array.isArray(employeeIds) && employeeIds.length > 0) {
+      targetEmployees = employeeIds;
+    } else {
+      const employeesRes = await query(
+        'SELECT employee_id FROM employee_businesses WHERE business_id = $1',
+        [businessId]
+      );
+      if (employeesRes.rows.length === 0) {
+        return errorResponse(res, 'No employees assigned to this business', 400);
+      }
+      targetEmployees = employeesRes.rows.map(r => r.employee_id);
     }
 
     const createdTargets = [];
-    for (const employee of employeesRes.rows) {
+    for (const employeeId of targetEmployees) {
       const result = await query(
         'INSERT INTO targets (employee_id, business_id, target_name, target_value, start_date, end_date) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-        [employee.employee_id, businessId, targetName, targetValue, startDate, endDate]
+        [employeeId, businessId, targetName, targetValue, startDate, endDate]
       );
       createdTargets.push(result.rows[0]);
     }
 
-    return successResponse(res, createdTargets, 'Business target assigned to all employees', 201);
+    return successResponse(res, createdTargets, 'Business target assigned successfully', 201);
   } catch (err) { next(err); }
 };
 
