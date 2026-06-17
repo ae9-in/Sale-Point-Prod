@@ -7,6 +7,7 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '../ui/Table';
 import { Download, Filter, TrendingUp, BarChart3, Clock, UserCheck } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import SubmissionStatusTracker from './SubmissionStatusTracker';
+import * as XLSX from 'xlsx';
 
 const currentYear = new Date().getFullYear();
 
@@ -39,7 +40,7 @@ const buildParams = (filters) => {
   return params;
 };
 
-const toCsv = (rows, activityType) => {
+const toExcelData = (rows, activityType) => {
   const isCallings = activityType === 'Callings';
   const headers = isCallings ? [
     'Date', 
@@ -115,9 +116,7 @@ const toCsv = (rows, activityType) => {
     }
   });
 
-  return [headers, ...body]
-    .map((line) => line.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(','))
-    .join('\n');
+  return [headers, ...body];
 };
 
 const PerformanceAnalytics = ({
@@ -265,7 +264,7 @@ const PerformanceAnalytics = ({
     setFilters((previous) => ({ ...previous, [name]: value }));
   };
 
-  const exportCsv = () => {
+  const exportExcel = () => {
     const dataToExport = groupBy === 'employee' ? filteredDetails : businessSummary.map(row => ({
       report_date: row.last_report_date,
       employee_name: 'All Employees',
@@ -280,13 +279,11 @@ const PerformanceAnalytics = ({
       answers: []
     }));
 
-    const blob = new Blob([toCsv(dataToExport, filters.activityType)], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `performance-intelligence-${groupBy}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const aoa = toExcelData(dataToExport, filters.activityType);
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Performance');
+    XLSX.writeFile(wb, `performance-intelligence-${groupBy}.xlsx`);
   };
 
   return (
@@ -297,7 +294,7 @@ const PerformanceAnalytics = ({
             <h2 className="text-xl font-black text-content-primary tracking-tight">{title}</h2>
             <p className="text-xs text-content-secondary mt-0.5 uppercase tracking-wider font-bold">Consolidated Performance Overview</p>
           </div>
-          <Button variant="secondary" className="h-9 text-[11px] font-black uppercase tracking-wider" onClick={exportCsv} disabled={data.details.length === 0}>
+          <Button variant="secondary" className="h-9 text-[11px] font-black uppercase tracking-wider" onClick={exportExcel} disabled={data.details.length === 0}>
             <Download className="mr-2 h-3.5 w-3.5" />
             Export Ledger
           </Button>

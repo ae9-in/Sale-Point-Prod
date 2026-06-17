@@ -7,6 +7,7 @@ import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
 import { FileText, Eye, X, Calendar, User, Building2, Clock, Download } from 'lucide-react';
 import SubmissionStatusTracker from '../../components/analytics/SubmissionStatusTracker';
+import * as XLSX from 'xlsx';
 
 const Reports = () => {
   const [reports, setReports] = useState([]);
@@ -117,16 +118,11 @@ const Reports = () => {
       report.activity_name,
       new Date(report.report_date).toLocaleDateString()
     ]);
-    const csv = [headers, ...rows]
-      .map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'employee-performance-reports.csv';
-    link.click();
-    URL.revokeObjectURL(url);
+    const aoa = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reports');
+    XLSX.writeFile(wb, 'employee-performance-reports.xlsx');
   };
 
   return (
