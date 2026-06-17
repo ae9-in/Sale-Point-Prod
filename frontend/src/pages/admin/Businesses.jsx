@@ -417,8 +417,8 @@ const Businesses = () => {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                  <div className="card motion-card motion-sheen p-5">
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                  <div className="card motion-card motion-sheen p-5 min-w-0 overflow-hidden">
                     <h3 className="mb-4 flex items-center gap-2 font-semibold text-content-primary"><Users className="h-4 w-4 text-brand-primary" /> Assigned Employees</h3>
                     <div className="mb-4 flex gap-2">
                       <select className="input-field" value={assignEmployeeId} onChange={(e) => setAssignEmployeeId(e.target.value)}>
@@ -433,7 +433,7 @@ const Businesses = () => {
                         {assignedEmployees.map((employee) => (
                           <Tr key={employee.id} className={selectedEmployeeId === employee.id ? 'bg-brand-primary/5' : ''}>
                             <Td><button className="font-semibold text-brand-primary" onClick={() => setSelectedEmployeeId(employee.id)}>{employee.name}</button></Td>
-                            <Td>{employee.email}</Td>
+                            <Td className="max-w-[180px] truncate" title={employee.email}>{employee.email}</Td>
                             <Td className="text-right"><button className="text-content-muted hover:text-brand-danger" onClick={() => handleUnassignEmployee(employee.id)}><Trash2 className="h-4 w-4" /></button></Td>
                           </Tr>
                         ))}
@@ -442,7 +442,7 @@ const Businesses = () => {
                     </Table>
                   </div>
 
-                  <div className="card motion-card motion-sheen p-5">
+                  <div className="card motion-card motion-sheen p-5 min-w-0 overflow-hidden">
                     <h3 className="mb-4 flex items-center gap-2 font-semibold text-content-primary"><Clock className="h-4 w-4 text-brand-primary" /> Upload Timings</h3>
                     <form onSubmit={handleAddTiming} className="mb-4 flex gap-2">
                       <Input type="time" value={timingName} onChange={(e) => setTimingName(e.target.value)} />
