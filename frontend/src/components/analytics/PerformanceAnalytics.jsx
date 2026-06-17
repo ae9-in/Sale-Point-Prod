@@ -39,8 +39,9 @@ const buildParams = (filters) => {
   return params;
 };
 
-const toCsv = (rows) => {
-  const headers = [
+const toCsv = (rows, activityType) => {
+  const isCallings = activityType === 'Callings';
+  const headers = isCallings ? [
     'Date', 
     'Employee', 
     'Business', 
@@ -49,30 +50,69 @@ const toCsv = (rows) => {
     'Dialled Calls', 
     'Answered Calls', 
     'Answered Rate %', 
+    'Conversions', 
+    'Conversion Rate %', 
+    'Positive Leads', 
+    'Positive Lead Rate %', 
+    'Answers'
+  ] : [
+    'Date', 
+    'Employee', 
+    'Business', 
+    'Timing', 
+    'Activity', 
+    'Visits Made', 
+    'Conversions', 
+    'Conversion Rate %', 
     'Positive Leads', 
     'Positive Lead Rate %', 
     'Answers'
   ];
   const body = rows.map((row) => {
-    const dialled = Number(row.dialled_total || 0);
-    const answered = Number(row.answered_total || 0);
     const leads = Number(row.numeric_total || 0);
-    const answerRate = dialled > 0 ? `${Math.round((answered / dialled) * 100)}%` : '—';
-    const leadRate = dialled > 0 ? `${Math.round((leads / dialled) * 100)}%` : '—';
+    if (isCallings) {
+      const dialled = Number(row.dialled_total || 0);
+      const answered = Number(row.answered_total || 0);
+      const conversions = Number(row.conversions_total || 0);
+      const answerRate = dialled > 0 ? `${Math.round((answered / dialled) * 100)}%` : '—';
+      const convRate = dialled > 0 ? `${Math.round((conversions / dialled) * 100)}%` : '—';
+      const leadRate = dialled > 0 ? `${Math.round((leads / dialled) * 100)}%` : '—';
 
-    return [
-      row.report_date ? new Date(row.report_date).toLocaleDateString() : '',
-      row.employee_name,
-      row.business_name,
-      row.timing_name,
-      row.activity_name,
-      dialled,
-      answered,
-      answerRate,
-      leads,
-      leadRate,
-      (row.answers || []).map((answer) => `${answer.fieldName}: ${answer.value}`).join(' | ')
-    ];
+      return [
+        row.report_date ? new Date(row.report_date).toLocaleDateString() : '',
+        row.employee_name,
+        row.business_name,
+        row.timing_name,
+        row.activity_name,
+        dialled,
+        answered,
+        answerRate,
+        conversions,
+        convRate,
+        leads,
+        leadRate,
+        (row.answers || []).map((answer) => `${answer.fieldName}: ${answer.value}`).join(' | ')
+      ];
+    } else {
+      const visits = Number(row.visits_total || 0);
+      const conversions = Number(row.conversions_total || 0);
+      const convRate = visits > 0 ? `${Math.round((conversions / visits) * 100)}%` : '—';
+      const leadRate = visits > 0 ? `${Math.round((leads / visits) * 100)}%` : '—';
+
+      return [
+        row.report_date ? new Date(row.report_date).toLocaleDateString() : '',
+        row.employee_name,
+        row.business_name,
+        row.timing_name,
+        row.activity_name,
+        visits,
+        conversions,
+        convRate,
+        leads,
+        leadRate,
+        (row.answers || []).map((answer) => `${answer.fieldName}: ${answer.value}`).join(' | ')
+      ];
+    }
   });
 
   return [headers, ...body]
@@ -95,7 +135,7 @@ const PerformanceAnalytics = ({
     employeeId: initialEmployeeId,
     businessId: initialBusinessId,
     locationId: '',
-    activityType: '',
+    activityType: 'Callings',
     period: 'day',
     date: new Date().toISOString().slice(0, 10),
     week: '',
@@ -173,6 +213,8 @@ const PerformanceAnalytics = ({
           report_count: 0,
           dialled_total: 0,
           answered_total: 0,
+          visits_total: 0,
+          conversions_total: 0,
           numeric_total: 0,
           last_report_date: null
         };
@@ -180,6 +222,8 @@ const PerformanceAnalytics = ({
       acc[key].report_count += Number(row.report_count || 0);
       acc[key].dialled_total += Number(row.dialled_total || 0);
       acc[key].answered_total += Number(row.answered_total || 0);
+      acc[key].visits_total += Number(row.visits_total || 0);
+      acc[key].conversions_total += Number(row.conversions_total || 0);
       acc[key].numeric_total += Number(row.numeric_total || 0);
       
       if (row.last_report_date) {
@@ -196,19 +240,25 @@ const PerformanceAnalytics = ({
     let reports = 0;
     let dialled = 0;
     let answered = 0;
+    let visits = 0;
+    let conversions = 0;
     let leads = 0;
 
     filteredSummary.forEach(row => {
       reports += Number(row.report_count || 0);
       dialled += Number(row.dialled_total || 0);
       answered += Number(row.answered_total || 0);
+      visits += Number(row.visits_total || 0);
+      conversions += Number(row.conversions_total || 0);
       leads += Number(row.numeric_total || 0);
     });
 
     const answerRate = dialled > 0 ? Math.round((answered / dialled) * 100) : 0;
     const leadRate = dialled > 0 ? Math.round((leads / dialled) * 100) : 0;
+    const conversionRate = visits > 0 ? Math.round((conversions / visits) * 100) : 0;
+    const leadRateVisits = visits > 0 ? Math.round((leads / visits) * 100) : 0;
 
-    return { reports, dialled, answered, leads, answerRate, leadRate };
+    return { reports, dialled, answered, visits, conversions, leads, answerRate, leadRate, conversionRate, leadRateVisits };
   }, [filteredSummary]);
 
   const updateFilter = (name, value) => {
@@ -224,11 +274,13 @@ const PerformanceAnalytics = ({
       activity_name: 'All Activities',
       dialled_total: row.dialled_total,
       answered_total: row.answered_total,
+      visits_total: row.visits_total,
+      conversions_total: row.conversions_total,
       numeric_total: row.numeric_total,
       answers: []
     }));
 
-    const blob = new Blob([toCsv(dataToExport)], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([toCsv(dataToExport, filters.activityType)], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -252,43 +304,74 @@ const PerformanceAnalytics = ({
         </div>
 
         {/* Global KPI Summary Cards */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-          <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md animate-fade-in">
-            <p className="text-[9px] uppercase font-black text-content-muted tracking-wider">Total Volume</p>
-            <p className="text-xl font-black text-content-primary mt-1">{totals.reports} <span className="text-[10px] text-content-secondary font-bold font-sans">Submissions</span></p>
+        {filters.activityType === 'Callings' ? (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md animate-fade-in">
+              <p className="text-[9px] uppercase font-black text-content-muted tracking-wider">Total Volume</p>
+              <p className="text-xl font-black text-content-primary mt-1">{totals.reports} <span className="text-[10px] text-content-secondary font-bold font-sans">Submissions</span></p>
+            </div>
+            <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md animate-fade-in">
+              <p className="text-[9px] uppercase font-black text-content-muted tracking-wider">Total Calls Dialled</p>
+              <p className="text-xl font-black text-content-primary mt-1">{totals.dialled.toLocaleString()} <span className="text-[10px] text-content-secondary font-bold font-sans">Calls</span></p>
+            </div>
+            <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md border-l-2 border-l-brand-secondary animate-fade-in">
+              <p className="text-[9px] uppercase font-black text-brand-secondary/80 tracking-wider">Calls Answered</p>
+              <p className="text-xl font-black text-content-primary mt-1">
+                {totals.answered.toLocaleString()}{' '}
+                <span className="text-xs font-black text-brand-secondary bg-brand-secondary/10 px-1.5 py-0.5 rounded ml-1 font-sans">
+                  {totals.answerRate}%
+                </span>
+              </p>
+            </div>
+            <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md border-l-2 border-l-brand-primary animate-fade-in">
+              <p className="text-[9px] uppercase font-black text-brand-primary/80 tracking-wider">Positive Leads</p>
+              <p className="text-xl font-black text-content-primary mt-1">
+                {totals.leads.toLocaleString()}{' '}
+                <span className="text-xs font-black text-brand-primary bg-brand-primary/10 px-1.5 py-0.5 rounded ml-1 font-sans">
+                  {totals.leadRate}%
+                </span>
+              </p>
+            </div>
           </div>
-          <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md animate-fade-in">
-            <p className="text-[9px] uppercase font-black text-content-muted tracking-wider">Total Calls Dialled</p>
-            <p className="text-xl font-black text-content-primary mt-1">{totals.dialled.toLocaleString()} <span className="text-[10px] text-content-secondary font-bold font-sans">Calls</span></p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md animate-fade-in">
+              <p className="text-[9px] uppercase font-black text-content-muted tracking-wider">Total Volume</p>
+              <p className="text-xl font-black text-content-primary mt-1">{totals.reports} <span className="text-[10px] text-content-secondary font-bold font-sans">Submissions</span></p>
+            </div>
+            <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md animate-fade-in">
+              <p className="text-[9px] uppercase font-black text-content-muted tracking-wider">Total Visits Made</p>
+              <p className="text-xl font-black text-content-primary mt-1">{totals.visits.toLocaleString()} <span className="text-[10px] text-content-secondary font-bold font-sans">Visits</span></p>
+            </div>
+            <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md border-l-2 border-l-brand-secondary animate-fade-in">
+              <p className="text-[9px] uppercase font-black text-brand-secondary/80 tracking-wider">Visits Converted</p>
+              <p className="text-xl font-black text-content-primary mt-1">
+                {totals.conversions.toLocaleString()}{' '}
+                <span className="text-xs font-black text-brand-secondary bg-brand-secondary/10 px-1.5 py-0.5 rounded ml-1 font-sans">
+                  {totals.conversionRate}%
+                </span>
+              </p>
+            </div>
+            <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md border-l-2 border-l-brand-primary animate-fade-in">
+              <p className="text-[9px] uppercase font-black text-brand-primary/80 tracking-wider">Positive Leads</p>
+              <p className="text-xl font-black text-content-primary mt-1">
+                {totals.leads.toLocaleString()}{' '}
+                <span className="text-xs font-black text-brand-primary bg-brand-primary/10 px-1.5 py-0.5 rounded ml-1 font-sans">
+                  {totals.leadRateVisits}%
+                </span>
+              </p>
+            </div>
           </div>
-          <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md border-l-2 border-l-brand-secondary animate-fade-in">
-            <p className="text-[9px] uppercase font-black text-brand-secondary/80 tracking-wider">Calls Answered</p>
-            <p className="text-xl font-black text-content-primary mt-1">
-              {totals.answered.toLocaleString()}{' '}
-              <span className="text-xs font-black text-brand-secondary bg-brand-secondary/10 px-1.5 py-0.5 rounded ml-1 font-sans">
-                {totals.answerRate}%
-              </span>
-            </p>
-          </div>
-          <div className="bg-dark-surface/40 border border-dark-border/40 p-4 rounded-xl backdrop-blur-md shadow-md border-l-2 border-l-brand-primary animate-fade-in">
-            <p className="text-[9px] uppercase font-black text-brand-primary/80 tracking-wider">Positive Leads</p>
-            <p className="text-xl font-black text-content-primary mt-1">
-              {totals.leads.toLocaleString()}{' '}
-              <span className="text-xs font-black text-brand-primary bg-brand-primary/10 px-1.5 py-0.5 rounded ml-1 font-sans">
-                {totals.leadRate}%
-              </span>
-            </p>
-          </div>
-        </div>
+        )}
       </div>
 
       {showFilters && (
         <div className="card border-dark-border/40 bg-dark-surface/40 p-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-4">
             {!lockEmployee && (
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Location</label>
-                <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.locationId} onChange={(e) => updateFilter('locationId', e.target.value)}>
+                <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10" value={filters.locationId} onChange={(e) => updateFilter('locationId', e.target.value)}>
                   <option value="">All Locations</option>
                   {locations.map((loc) => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
                 </select>
@@ -297,7 +380,7 @@ const PerformanceAnalytics = ({
             {!lockEmployee && (
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Team Member</label>
-                <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.employeeId} onChange={(e) => updateFilter('employeeId', e.target.value)}>
+                <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10" value={filters.employeeId} onChange={(e) => updateFilter('employeeId', e.target.value)}>
                   <option value="">Full Team</option>
                   {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
                 </select>
@@ -311,14 +394,13 @@ const PerformanceAnalytics = ({
                   placeholder="Type name..."
                   value={employeeSearch}
                   onChange={(e) => setEmployeeSearch(e.target.value)}
-                  className="w-full h-8.5 bg-dark-bg border border-dark-border rounded-lg px-3 py-1 text-xs text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors placeholder:text-content-muted/50"
+                  className="w-full h-10 bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors placeholder:text-content-muted/50"
                 />
               </div>
             )}
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Activity Type</label>
-              <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.activityType} onChange={(e) => updateFilter('activityType', e.target.value)}>
-                <option value="">All Activities</option>
+              <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10" value={filters.activityType} onChange={(e) => updateFilter('activityType', e.target.value)}>
                 <option value="Callings">Callings</option>
                 <option value="Fields">Field Visits</option>
               </select>
@@ -326,7 +408,7 @@ const PerformanceAnalytics = ({
             {!lockBusiness && (
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Market Unit</label>
-                <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.businessId} onChange={(e) => updateFilter('businessId', e.target.value)}>
+                <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10" value={filters.businessId} onChange={(e) => updateFilter('businessId', e.target.value)}>
                   <option value="">All Markets</option>
                   {businesses.map((business) => <option key={business.id} value={business.id}>{business.business_name}</option>)}
                 </select>
@@ -334,7 +416,7 @@ const PerformanceAnalytics = ({
             )}
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Analysis Period</label>
-              <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.period} onChange={(e) => updateFilter('period', e.target.value)}>
+              <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10" value={filters.period} onChange={(e) => updateFilter('period', e.target.value)}>
                 <option value="day">Daily View</option>
                 <option value="week">Weekly View</option>
                 <option value="month">Monthly View</option>
@@ -343,19 +425,19 @@ const PerformanceAnalytics = ({
                 <option value="all">Historical</option>
               </select>
             </div>
-            {filters.period === 'day' && <Input label="Target Date" type="date" value={filters.date} onChange={(e) => updateFilter('date', e.target.value)} />}
-            {filters.period === 'week' && <Input label="Target Week" type="week" value={filters.week} onChange={(e) => updateFilter('week', e.target.value)} />}
-            {filters.period === 'month' && <Input label="Target Month" type="month" value={filters.month} onChange={(e) => updateFilter('month', e.target.value)} />}
-            {filters.period === 'year' && <Input label="Target Year" type="number" value={filters.year} onChange={(e) => updateFilter('year', e.target.value)} />}
+            {filters.period === 'day' && <Input label="Target Date" type="date" value={filters.date} onChange={(e) => updateFilter('date', e.target.value)} className="h-10" />}
+            {filters.period === 'week' && <Input label="Target Week" type="week" value={filters.week} onChange={(e) => updateFilter('week', e.target.value)} className="h-10" />}
+            {filters.period === 'month' && <Input label="Target Month" type="month" value={filters.month} onChange={(e) => updateFilter('month', e.target.value)} className="h-10" />}
+            {filters.period === 'year' && <Input label="Target Year" type="number" value={filters.year} onChange={(e) => updateFilter('year', e.target.value)} className="h-10" />}
             {filters.period === 'custom' && (
               <>
-                <Input label="Commence" type="date" value={filters.fromDate} onChange={(e) => updateFilter('fromDate', e.target.value)} />
-                <Input label="Conclude" type="date" value={filters.toDate} onChange={(e) => updateFilter('toDate', e.target.value)} />
+                <Input label="Commence" type="date" value={filters.fromDate} onChange={(e) => updateFilter('fromDate', e.target.value)} className="h-10" />
+                <Input label="Conclude" type="date" value={filters.toDate} onChange={(e) => updateFilter('toDate', e.target.value)} className="h-10" />
               </>
             )}
             <div>
               <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1">Rank By</label>
-              <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary transition-colors" value={filters.sortBy} onChange={(e) => updateFilter('sortBy', e.target.value)}>
+              <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10" value={filters.sortBy} onChange={(e) => updateFilter('sortBy', e.target.value)}>
                 <option value="report_date">Chronological</option>
                 <option value="employee">Alphabetical (User)</option>
                 <option value="business">Alphabetical (Biz)</option>
@@ -411,52 +493,80 @@ const PerformanceAnalytics = ({
                 </button>
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <Thead>
-                  {groupBy === 'employee' ? (
-                    <Tr className="bg-dark-bg/20">
-                      <Th className="text-[10px] uppercase tracking-wider">Member</Th>
-                      <Th className="text-[10px] uppercase tracking-wider">Asset/Market</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-center">Volume</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-center">Dialled</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-center">Answered</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-center">Ans. %</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Pos. Leads</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Lead %</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-right">Latest Log</Th>
-                    </Tr>
-                  ) : (
-                    <Tr className="bg-dark-bg/20">
-                      <Th className="text-[10px] uppercase tracking-wider">Market Unit (Business)</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-center">Volume</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-center">Dialled</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-center">Answered</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-center">Ans. %</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Pos. Leads</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Lead %</Th>
-                      <Th className="text-[10px] uppercase tracking-wider text-right">Latest Log</Th>
-                    </Tr>
-                  )}
-                </Thead>
-                <Tbody>
-                  {groupBy === 'employee' ? (
-                    filteredSummary.map((row) => {
+            <Table>
+              <Thead>
+                {groupBy === 'employee' ? (
+                  <Tr className="bg-dark-bg/20">
+                    <Th className="text-[10px] uppercase tracking-wider">Member</Th>
+                    <Th className="text-[10px] uppercase tracking-wider">Asset/Market</Th>
+                    {filters.activityType === 'Callings' ? (
+                      <>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Dialled</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Answered</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Ans. %</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Conversions</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Conv. %</Th>
+                      </>
+                    ) : (
+                      <>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Visits</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Conversions</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Conv. %</Th>
+                      </>
+                    )}
+                    <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Pos. Leads</Th>
+                    <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Lead %</Th>
+                    <Th className="text-[10px] uppercase tracking-wider text-right">Latest Log</Th>
+                  </Tr>
+                ) : (
+                  <Tr className="bg-dark-bg/20">
+                    <Th className="text-[10px] uppercase tracking-wider">Market Unit (Business)</Th>
+                    {filters.activityType === 'Callings' ? (
+                      <>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Dialled</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Answered</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Ans. %</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Conversions</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Conv. %</Th>
+                      </>
+                    ) : (
+                      <>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Visits</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Conversions</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center">Conv. %</Th>
+                      </>
+                    )}
+                    <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Pos. Leads</Th>
+                    <Th className="text-[10px] uppercase tracking-wider text-brand-primary text-center">Lead %</Th>
+                    <Th className="text-[10px] uppercase tracking-wider text-right">Latest Log</Th>
+                  </Tr>
+                )}
+              </Thead>
+              <Tbody>
+                {groupBy === 'employee' ? (
+                  filteredSummary.map((row) => {
+                    const leads = Number(row.numeric_total || 0);
+
+                    if (filters.activityType === 'Callings') {
                       const dialled = Number(row.dialled_total || 0);
                       const answered = Number(row.answered_total || 0);
-                      const leads = Number(row.numeric_total || 0);
+                      const conversions = Number(row.conversions_total || 0);
                       const answerRate = dialled > 0 ? Math.round((answered / dialled) * 100) : null;
+                      const convRate = dialled > 0 ? Math.round((conversions / dialled) * 100) : null;
                       const leadRate = dialled > 0 ? Math.round((leads / dialled) * 100) : null;
 
                       return (
                         <Tr key={`${row.employee_id}-${row.business_id}`} className="hover:bg-brand-primary/[0.03] transition-colors">
                           <Td><p className="font-bold text-content-primary text-xs">{row.employee_name}</p></Td>
                           <Td><p className="text-xs text-content-secondary">{row.business_name}</p></Td>
-                          <Td className="text-center font-mono text-xs">{row.report_count}</Td>
                           <Td className="text-center font-mono text-xs">{dialled}</Td>
                           <Td className="text-center font-mono text-xs">{answered}</Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {answerRate !== null ? `${answerRate}%` : '—'}
+                          </Td>
+                          <Td className="text-center font-mono text-xs">{conversions}</Td>
+                          <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
+                            {convRate !== null ? `${convRate}%` : '—'}
                           </Td>
                           <Td className="text-center">
                             <p className="font-black text-brand-primary text-sm">{leads.toLocaleString()}</p>
@@ -469,23 +579,57 @@ const PerformanceAnalytics = ({
                           </Td>
                         </Tr>
                       );
-                    })
-                  ) : (
-                    businessSummary.map((row) => {
+                    } else {
+                      const visits = Number(row.visits_total || 0);
+                      const conversions = Number(row.conversions_total || 0);
+                      const convRate = visits > 0 ? Math.round((conversions / visits) * 100) : null;
+                      const leadRate = visits > 0 ? Math.round((leads / visits) * 100) : null;
+
+                      return (
+                        <Tr key={`${row.employee_id}-${row.business_id}`} className="hover:bg-brand-primary/[0.03] transition-colors">
+                          <Td><p className="font-bold text-content-primary text-xs">{row.employee_name}</p></Td>
+                          <Td><p className="text-xs text-content-secondary">{row.business_name}</p></Td>
+                          <Td className="text-center font-mono text-xs">{visits}</Td>
+                          <Td className="text-center font-mono text-xs">{conversions}</Td>
+                          <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
+                            {convRate !== null ? `${convRate}%` : '—'}
+                          </Td>
+                          <Td className="text-center">
+                            <p className="font-black text-brand-primary text-sm">{leads.toLocaleString()}</p>
+                          </Td>
+                          <Td className="text-center font-mono text-xs font-semibold text-brand-primary">
+                            {leadRate !== null ? `${leadRate}%` : '—'}
+                          </Td>
+                          <Td className="text-right font-mono text-[10px] text-content-muted">
+                            {row.last_report_date ? new Date(row.last_report_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}
+                          </Td>
+                        </Tr>
+                      );
+                    }
+                  })
+                ) : (
+                  businessSummary.map((row) => {
+                    const leads = Number(row.numeric_total || 0);
+
+                    if (filters.activityType === 'Callings') {
                       const dialled = Number(row.dialled_total || 0);
                       const answered = Number(row.answered_total || 0);
-                      const leads = Number(row.numeric_total || 0);
+                      const conversions = Number(row.conversions_total || 0);
                       const answerRate = dialled > 0 ? Math.round((answered / dialled) * 100) : null;
+                      const convRate = dialled > 0 ? Math.round((conversions / dialled) * 100) : null;
                       const leadRate = dialled > 0 ? Math.round((leads / dialled) * 100) : null;
 
                       return (
                         <Tr key={row.business_id} className="hover:bg-brand-primary/[0.03] transition-colors">
                           <Td><p className="font-bold text-content-primary text-xs">{row.business_name}</p></Td>
-                          <Td className="text-center font-mono text-xs">{row.report_count}</Td>
                           <Td className="text-center font-mono text-xs">{dialled}</Td>
                           <Td className="text-center font-mono text-xs">{answered}</Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {answerRate !== null ? `${answerRate}%` : '—'}
+                          </Td>
+                          <Td className="text-center font-mono text-xs">{conversions}</Td>
+                          <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
+                            {convRate !== null ? `${convRate}%` : '—'}
                           </Td>
                           <Td className="text-center">
                             <p className="font-black text-brand-primary text-sm">{leads.toLocaleString()}</p>
@@ -498,14 +642,39 @@ const PerformanceAnalytics = ({
                           </Td>
                         </Tr>
                       );
-                    })
-                  )}
-                  {((groupBy === 'employee' && filteredSummary.length === 0) || (groupBy === 'business' && businessSummary.length === 0)) && (
-                    <Tr><Td colSpan={groupBy === 'employee' ? 9 : 8} className="py-12 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">No Intelligence Data Available</Td></Tr>
-                  )}
-                </Tbody>
-              </Table>
-            </div>
+                    } else {
+                      const visits = Number(row.visits_total || 0);
+                      const conversions = Number(row.conversions_total || 0);
+                      const convRate = visits > 0 ? Math.round((conversions / visits) * 100) : null;
+                      const leadRate = visits > 0 ? Math.round((leads / visits) * 100) : null;
+
+                      return (
+                        <Tr key={row.business_id} className="hover:bg-brand-primary/[0.03] transition-colors">
+                          <Td><p className="font-bold text-content-primary text-xs">{row.business_name}</p></Td>
+                          <Td className="text-center font-mono text-xs">{visits}</Td>
+                          <Td className="text-center font-mono text-xs">{conversions}</Td>
+                          <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
+                            {convRate !== null ? `${convRate}%` : '—'}
+                          </Td>
+                          <Td className="text-center">
+                            <p className="font-black text-brand-primary text-sm">{leads.toLocaleString()}</p>
+                          </Td>
+                          <Td className="text-center font-mono text-xs font-semibold text-brand-primary">
+                            {leadRate !== null ? `${leadRate}%` : '—'}
+                          </Td>
+                          <Td className="text-right font-mono text-[10px] text-content-muted">
+                            {row.last_report_date ? new Date(row.last_report_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}
+                          </Td>
+                        </Tr>
+                      );
+                    }
+                  })
+                )}
+                {((groupBy === 'employee' && filteredSummary.length === 0) || (groupBy === 'business' && businessSummary.length === 0)) && (
+                  <Tr><Td colSpan={10} className="py-12 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">No Intelligence Data Available</Td></Tr>
+                )}
+              </Tbody>
+            </Table>
           </div>
 
           <div className="card overflow-hidden px-0 py-0">
@@ -513,46 +682,44 @@ const PerformanceAnalytics = ({
               <BarChart3 size={14} className="text-brand-secondary" />
               <h3 className="text-[10px] font-black uppercase tracking-widest text-content-primary">Detailed Activity Log</h3>
             </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <Thead>
-                  <Tr className="bg-dark-bg/20">
-                    <Th className="text-[10px] uppercase tracking-wider">Timeline</Th>
-                    <Th className="text-[10px] uppercase tracking-wider">Member</Th>
-                    <Th className="text-[10px] uppercase tracking-wider text-center">Leads</Th>
-                    <Th className="text-[10px] uppercase tracking-wider">Insights</Th>
+            <Table>
+              <Thead>
+                <Tr className="bg-dark-bg/20">
+                  <Th className="text-[10px] uppercase tracking-wider">Timeline</Th>
+                  <Th className="text-[10px] uppercase tracking-wider">Member</Th>
+                  <Th className="text-[10px] uppercase tracking-wider text-center">Leads</Th>
+                  <Th className="text-[10px] uppercase tracking-wider">Insights</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {filteredDetails.map((row) => (
+                  <Tr key={row.id} className="hover:bg-dark-bg/40">
+                    <Td className="whitespace-nowrap font-mono text-[10px] text-content-muted">
+                      {new Date(row.report_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} <br/>
+                      <span className="text-[9px] opacity-60 uppercase">{row.timing_name}</span>
+                    </Td>
+                    <Td>
+                      <p className="font-bold text-content-primary text-xs">{row.employee_name}</p>
+                      <p className="text-[9px] text-content-muted uppercase tracking-tight truncate max-w-[120px]">{row.business_name}</p>
+                    </Td>
+                    <Td className="text-center"><span className="font-black text-brand-primary text-xs">{row.numeric_total}</span></Td>
+                    <Td>
+                      <div className="flex flex-wrap gap-1">
+                        {(row.answers || []).slice(0, 4).map((answer, index) => (
+                          <div key={`${row.id}-${index}`} className="bg-dark-bg border border-dark-border/60 rounded px-1.5 py-0.5 text-[9px]">
+                            <span className="text-content-muted uppercase font-bold mr-1">{answer.fieldName}:</span>
+                            <span className="text-content-primary font-medium">{answer.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </Td>
                   </Tr>
-                </Thead>
-                <Tbody>
-                  {filteredDetails.map((row) => (
-                    <Tr key={row.id} className="hover:bg-dark-bg/40">
-                      <Td className="whitespace-nowrap font-mono text-[10px] text-content-muted">
-                        {new Date(row.report_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} <br/>
-                        <span className="text-[9px] opacity-60 uppercase">{row.timing_name}</span>
-                      </Td>
-                      <Td>
-                        <p className="font-bold text-content-primary text-xs">{row.employee_name}</p>
-                        <p className="text-[9px] text-content-muted uppercase tracking-tight truncate max-w-[120px]">{row.business_name}</p>
-                      </Td>
-                      <Td className="text-center"><span className="font-black text-brand-primary text-xs">{row.numeric_total}</span></Td>
-                      <Td>
-                        <div className="flex flex-wrap gap-1">
-                          {(row.answers || []).slice(0, 4).map((answer, index) => (
-                            <div key={`${row.id}-${index}`} className="bg-dark-bg border border-dark-border/60 rounded px-1.5 py-0.5 text-[9px]">
-                              <span className="text-content-muted uppercase font-bold mr-1">{answer.fieldName}:</span>
-                              <span className="text-content-primary font-medium">{answer.value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </Td>
-                    </Tr>
-                  ))}
-                  {filteredDetails.length === 0 && (
-                    <Tr><Td colSpan={4} className="py-12 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">No Activity Records Found</Td></Tr>
-                  )}
-                </Tbody>
-              </Table>
-            </div>
+                ))}
+                {filteredDetails.length === 0 && (
+                  <Tr><Td colSpan={4} className="py-12 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">No Activity Records Found</Td></Tr>
+                )}
+              </Tbody>
+            </Table>
           </div>
         </>
       )}

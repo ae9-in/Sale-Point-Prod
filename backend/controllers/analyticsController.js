@@ -181,6 +181,8 @@ const getPerformance = async (req, res, next) => {
         COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%positive leads%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS numeric_total,
         COALESCE(SUM(CASE WHEN (ff.field_name ILIKE '%dial%' OR ff.field_name ILIKE '%calls made%' OR ff.field_name ILIKE '%total calls%' OR (ff.field_name ILIKE '%calls%' AND ff.field_name NOT ILIKE '%answer%' AND ff.field_name NOT ILIKE '%positive%' AND ff.field_name NOT ILIKE '%negative%' AND ff.field_name NOT ILIKE '%conversion%')) AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS dialled_total,
         COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%answer%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS answered_total,
+        COALESCE(SUM(CASE WHEN (ff.field_name ILIKE '%visit%' OR ff.field_name ILIKE '%field visit%' OR ff.field_name ILIKE '%number of visits%') AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS visits_total,
+        COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%conversion%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS conversions_total,
         MIN(er.report_date) AS first_report_date,
         MAX(er.report_date) AS last_report_date
       FROM employee_reports er
@@ -208,6 +210,8 @@ const getPerformance = async (req, res, next) => {
         COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%positive leads%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS numeric_total,
         COALESCE(SUM(CASE WHEN (ff.field_name ILIKE '%dial%' OR ff.field_name ILIKE '%calls made%' OR ff.field_name ILIKE '%total calls%' OR (ff.field_name ILIKE '%calls%' AND ff.field_name NOT ILIKE '%answer%' AND ff.field_name NOT ILIKE '%positive%' AND ff.field_name NOT ILIKE '%negative%' AND ff.field_name NOT ILIKE '%conversion%')) AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS dialled_total,
         COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%answer%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS answered_total,
+        COALESCE(SUM(CASE WHEN (ff.field_name ILIKE '%visit%' OR ff.field_name ILIKE '%field visit%' OR ff.field_name ILIKE '%number of visits%') AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS visits_total,
+        COALESCE(SUM(CASE WHEN ff.field_name ILIKE '%conversion%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::numeric ELSE 0 END), 0)::float AS conversions_total,
         COALESCE(
           json_agg(
             json_build_object(

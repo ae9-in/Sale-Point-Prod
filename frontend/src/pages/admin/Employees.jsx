@@ -157,19 +157,21 @@ const Employees = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-1">
         <div>
-          <h1 className="text-lg font-bold text-content-primary">Employees</h1>
-          <p className="mt-1 text-content-secondary">Click an employee to view details, assigned businesses, and performance analytics.</p>
+          <h1 className="text-xl md:text-2xl font-black text-content-primary tracking-tight">Employees</h1>
+          <p className="mt-1 text-xs text-content-secondary uppercase tracking-[0.15em] font-bold">Click an employee to view details, assigned businesses, and performance analytics.</p>
         </div>
-        <Button onClick={() => setShowAdd((value) => !value)}>
+        <Button onClick={() => setShowAdd((value) => !value)} className="h-9 text-[11px] font-black uppercase tracking-wider">
           <Plus className="mr-2 h-4 w-4" /> Add Employee
         </Button>
       </div>
 
       {showAdd && (
-        <div className="card motion-card motion-sheen border border-brand-primary/30 bg-brand-primary/5 p-5">
-          <h2 className="mb-4 text-base font-semibold text-content-primary">Create Employee Account</h2>
+        <div className="card border-dark-border/40 bg-dark-surface/40 p-5 backdrop-blur-md shadow-md animate-fade-in">
+          <div className="border-b border-dark-border/60 pb-3 mb-4">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-content-primary">Create Employee Account</h2>
+          </div>
           <form onSubmit={handleAddEmployee} className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Input label="Full Name" name="name" value={formData.name} onChange={handleInputChange} required />
             <Input label="Email" name="email" type="email" value={formData.email} onChange={handleInputChange} required />
@@ -191,17 +193,17 @@ const Employees = () => {
               </select>
             </div>
             <div className="flex justify-end gap-2 md:col-span-2 xl:col-span-4 mt-2">
-              <Button type="button" variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Button>
-              <Button type="submit">Create Account</Button>
+              <Button type="button" variant="secondary" onClick={() => setShowAdd(false)} className="h-9 text-[11px] font-black uppercase tracking-wider">Cancel</Button>
+              <Button type="submit" className="h-9 text-[11px] font-black uppercase tracking-wider">Create Account</Button>
             </div>
           </form>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[420px_1fr]">
-        <div className="card motion-card motion-sheen overflow-hidden">
-          <div className="border-b border-dark-border px-5 py-4 flex flex-col gap-3">
-            <h2 className="font-semibold text-content-primary">All Employees</h2>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[420px_1fr] w-full min-w-0">
+        <div className="card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md min-w-0">
+          <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex flex-col gap-3">
+            <h2 className="text-[10px] font-black uppercase tracking-widest text-content-primary">All Employees</h2>
             <input
               type="text"
               placeholder="Search by name, email, phone, location..."
@@ -246,17 +248,17 @@ const Employees = () => {
                 </div>
               </button>
             ))}
-            {filteredEmployees.length === 0 && <p className="p-5 text-center text-content-muted">No employees match search.</p>}
+            {filteredEmployees.length === 0 && <p className="p-5 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">No employees match search.</p>}
           </div>
         </div>
 
         {selectedEmployee ? (
-          <div className="space-y-5">
-            <div className="card motion-card motion-sheen p-5">
+          <div className="space-y-5 min-w-0">
+            <div className="card border-dark-border/40 bg-dark-surface/40 p-5 backdrop-blur-md shadow-md animate-fade-in">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide text-brand-primary">Employee Details</p>
-                  <h2 className="mt-1 text-lg font-bold text-content-primary">{selectedEmployee.name}</h2>
+                  <p className="text-[9px] uppercase font-black text-brand-primary tracking-wider">Employee Details</p>
+                  <h2 className="mt-1 text-xl font-black text-content-primary tracking-tight">{selectedEmployee.name}</h2>
                   <div className="mt-3 flex flex-wrap gap-3 text-sm text-content-secondary">
                     <span className="inline-flex items-center gap-1.5"><Mail className="h-4 w-4" /> {selectedEmployee.email}</span>
                     {selectedEmployee.phone && <span className="inline-flex items-center gap-1.5"><Phone className="h-4 w-4" /> {selectedEmployee.phone}</span>}
@@ -265,22 +267,22 @@ const Employees = () => {
                     <span className="inline-flex items-center gap-1.5"><Shield className="h-4 w-4" /> Employee</span>
                   </div>
                 </div>
-                <Button variant="danger" onClick={() => handleDeleteEmployee(selectedEmployee.id)}>
+                <Button variant="danger" onClick={() => handleDeleteEmployee(selectedEmployee.id)} className="h-9 text-[11px] font-black uppercase tracking-wider">
                   <Trash2 className="mr-2 h-4 w-4" /> Delete
                 </Button>
               </div>
             </div>
 
-            <div className="card motion-card motion-sheen overflow-hidden">
-              <div className="border-b border-dark-border px-5 py-4">
-                <h3 className="flex items-center gap-2 font-semibold text-content-primary"><Briefcase className="h-4 w-4 text-brand-primary" /> Assigned Businesses</h3>
+            <div className="card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md">
+              <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-content-primary"><Briefcase className="h-3.5 w-3.5 text-brand-primary" /> Assigned Businesses</h3>
               </div>
               
               <div className="p-4 border-b border-dark-border/50 bg-dark-bg/20 flex flex-col sm:flex-row gap-3 items-end">
                 <div className="flex-1 space-y-1">
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted">Assign Business</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted block ml-1">Assign Business</label>
                   <select 
-                    className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm h-10 transition-colors" 
+                    className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10" 
                     value={assignBusinessId} 
                     onChange={(e) => setAssignBusinessId(e.target.value)}
                   >
@@ -293,9 +295,9 @@ const Employees = () => {
                 <Button 
                   onClick={handleAssignBusiness} 
                   disabled={!assignBusinessId}
-                  className="h-10 px-6 font-bold"
+                  className="h-10 px-6 text-xs font-black uppercase tracking-wider"
                 >
-                  <Plus className="mr-1.5 h-4 w-4" /> Assign
+                  <Plus className="mr-1.5 h-3.5 w-3.5" /> Assign
                 </Button>
               </div>
 
@@ -306,19 +308,27 @@ const Employees = () => {
               ) : (
                 <Table>
                   <Thead>
-                    <Tr>
-                      <Th>Business</Th>
-                      <Th>Description</Th>
-                      <Th>Created</Th>
-                      <Th className="text-right">Action</Th>
+                    <Tr className="bg-dark-bg/20">
+                      <Th className="text-[10px] uppercase tracking-wider">Business</Th>
+                      <Th className="text-[10px] uppercase tracking-wider">Description</Th>
+                      <Th className="text-[10px] uppercase tracking-wider">Created</Th>
+                      <Th className="text-[10px] uppercase tracking-wider text-right">Action</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
                     {assignedBusinesses.map((business) => (
-                      <Tr key={business.id}>
-                        <Td className="font-semibold text-content-primary">{business.business_name}</Td>
-                        <Td>{business.description || '-'}</Td>
-                        <Td>{new Date(business.created_at).toLocaleDateString()}</Td>
+                      <Tr key={business.id} className="hover:bg-brand-primary/[0.03] transition-colors">
+                        <Td>
+                          <div className="max-w-[150px] truncate font-bold text-content-primary text-xs" title={business.business_name}>
+                            {business.business_name}
+                          </div>
+                        </Td>
+                        <Td>
+                          <div className="max-w-[220px] truncate text-xs text-content-secondary" title={business.description}>
+                            {business.description || '-'}
+                          </div>
+                        </Td>
+                        <Td className="font-mono text-xs text-content-muted">{new Date(business.created_at).toLocaleDateString()}</Td>
                         <Td className="text-right">
                           <button 
                             onClick={() => handleUnassignBusiness(business.id)} 
@@ -330,7 +340,7 @@ const Employees = () => {
                         </Td>
                       </Tr>
                     ))}
-                    {assignedBusinesses.length === 0 && <Tr><Td colSpan={4} className="py-8 text-center text-content-muted">No businesses assigned.</Td></Tr>}
+                    {assignedBusinesses.length === 0 && <Tr><Td colSpan={4} className="py-8 text-center text-[10px] font-bold uppercase tracking-widest text-content-muted">No businesses assigned.</Td></Tr>}
                   </Tbody>
                 </Table>
               )}
@@ -346,7 +356,7 @@ const Employees = () => {
             />
           </div>
         ) : (
-          <div className="card motion-card motion-sheen flex min-h-[320px] items-center justify-center p-5 text-center text-content-muted">
+          <div className="card border-dark-border/40 bg-dark-surface/40 flex min-h-[320px] items-center justify-center p-5 text-center text-[11px] font-bold uppercase tracking-widest text-content-muted shadow-md">
             Select an employee to view details and performance.
           </div>
         )}

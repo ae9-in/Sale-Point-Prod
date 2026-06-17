@@ -339,25 +339,27 @@ const Businesses = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-lg font-bold text-content-primary">Businesses</h1>
-        <p className="mt-1 text-content-secondary">Create businesses, assign employees, manage timings, custom fields, and business performance.</p>
+      <div className="px-1">
+        <h1 className="text-xl md:text-2xl font-black text-content-primary tracking-tight">Businesses</h1>
+        <p className="mt-1 text-xs text-content-secondary uppercase tracking-[0.15em] font-bold">Create businesses, assign employees, manage timings, custom fields, and business performance.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[360px_1fr]">
-        <div className="space-y-5">
-          <div className="card motion-card motion-sheen p-5">
-            <h2 className="mb-4 flex items-center gap-2 font-semibold text-content-primary"><Plus className="h-4 w-4 text-brand-primary" /> Add Business</h2>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[360px_1fr] w-full min-w-0">
+        <div className="space-y-5 min-w-0">
+          <div className="card border-dark-border/40 bg-dark-surface/40 p-5 backdrop-blur-md shadow-md animate-fade-in">
+            <div className="border-b border-dark-border/60 pb-3 mb-4">
+              <h2 className="text-[10px] font-black uppercase tracking-widest text-content-primary flex items-center gap-2"><Plus className="h-3.5 w-3.5 text-brand-primary" /> Add Business</h2>
+            </div>
             <form onSubmit={handleCreateBusiness} className="space-y-3">
               <Input label="Business Name" value={businessForm.businessName} onChange={(e) => setBusinessForm({ ...businessForm, businessName: e.target.value })} />
               <Input label="Description" value={businessForm.description} onChange={(e) => setBusinessForm({ ...businessForm, description: e.target.value })} />
-              <Button type="submit" className="w-full">Create Business</Button>
+              <Button type="submit" className="w-full h-9 text-[11px] font-black uppercase tracking-wider">Create Business</Button>
             </form>
           </div>
 
-          <div className="card motion-card motion-sheen overflow-hidden">
-            <div className="border-b border-dark-border px-5 py-4 flex flex-col gap-3">
-              <h2 className="font-semibold text-content-primary">All Businesses</h2>
+          <div className="card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md">
+            <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex flex-col gap-3">
+              <h2 className="text-[10px] font-black uppercase tracking-widest text-content-primary">All Businesses</h2>
               <input
                 type="text"
                 placeholder="Search by name, description..."
@@ -382,30 +384,30 @@ const Businesses = () => {
                       <p className="font-semibold text-content-primary">{business.business_name}</p>
                       <p className="mt-1 line-clamp-2 text-sm text-content-secondary">{business.description || 'No description added'}</p>
                     </div>
-                    <Building2 className="h-4 w-4 text-brand-primary" />
+                    <Building2 className="h-4 w-4 text-brand-primary flex-shrink-0" />
                   </div>
                 </button>
               ))}
-              {filteredBusinesses.length === 0 && <p className="p-4 text-sm text-content-muted">No businesses match search.</p>}
+              {filteredBusinesses.length === 0 && <p className="p-4 text-[11px] font-medium text-content-muted uppercase tracking-widest text-center">No businesses match search.</p>}
             </div>
           </div>
         </div>
 
         {selectedBusiness ? (
-          <div className="space-y-5">
-            <div className="card motion-card motion-sheen p-5">
+          <div className="space-y-5 min-w-0">
+            <div className="card border-dark-border/40 bg-dark-surface/40 p-5 backdrop-blur-md shadow-md">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide text-brand-primary">Selected Business</p>
-                  <h2 className="mt-1 text-lg font-bold text-content-primary">{selectedBusiness.business_name}</h2>
-                  <p className="mt-1 text-content-secondary">{selectedBusiness.description || 'Manage employees, timings, fields, and analytics for this business.'}</p>
+                  <p className="text-[9px] uppercase font-black text-brand-primary tracking-wider">Selected Business</p>
+                  <h2 className="mt-1 text-xl font-black text-content-primary tracking-tight">{selectedBusiness.business_name}</h2>
+                  <p className="mt-1 text-sm text-content-secondary">{selectedBusiness.description || 'Manage employees, timings, fields, and analytics for this business.'}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="secondary" onClick={handleApplyDefaults} isLoading={templateLoading}>
-                    <Plus className="mr-1 h-4 w-4" /> Defaults
+                  <Button variant="secondary" onClick={handleApplyDefaults} isLoading={templateLoading} className="h-9 text-[11px] font-black uppercase tracking-wider">
+                    <Plus className="mr-1 h-3.5 w-3.5" /> Defaults
                   </Button>
-                  <Button variant="danger" onClick={() => handleDeleteBusiness(selectedBusiness.id)}>
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  <Button variant="danger" onClick={() => handleDeleteBusiness(selectedBusiness.id)} className="h-9 text-[11px] font-black uppercase tracking-wider">
+                    <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
                   </Button>
                 </div>
               </div>
@@ -417,38 +419,63 @@ const Businesses = () => {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                  <div className="card motion-card motion-sheen p-5 min-w-0 overflow-hidden">
-                    <h3 className="mb-4 flex items-center gap-2 font-semibold text-content-primary"><Users className="h-4 w-4 text-brand-primary" /> Assigned Employees</h3>
-                    <div className="mb-4 flex gap-2">
-                      <select className="input-field" value={assignEmployeeId} onChange={(e) => setAssignEmployeeId(e.target.value)}>
-                        <option value="">Select employee</option>
-                        {unassignedEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
-                      </select>
-                      <Button type="button" onClick={handleAssignEmployee}><UserPlus className="h-4 w-4" /></Button>
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 w-full min-w-0">
+                  <div className="card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md min-w-0">
+                    <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex items-center justify-between">
+                      <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-content-primary"><Users className="h-3.5 w-3.5 text-brand-primary" /> Assigned Employees</h3>
+                    </div>
+                    <div className="p-4 border-b border-dark-border/50 bg-dark-bg/20 flex gap-2 items-end">
+                      <div className="flex-1 space-y-1">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted block ml-1">Select Employee</label>
+                        <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10" value={assignEmployeeId} onChange={(e) => setAssignEmployeeId(e.target.value)}>
+                          <option value="">Select employee...</option>
+                          {unassignedEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
+                        </select>
+                      </div>
+                      <Button type="button" onClick={handleAssignEmployee} className="h-10 text-xs font-black uppercase tracking-wider px-3"><UserPlus className="h-4 w-4" /></Button>
                     </div>
                     <Table>
-                      <Thead><Tr><Th>Name</Th><Th>Email</Th><Th className="text-right">Action</Th></Tr></Thead>
+                      <Thead>
+                        <Tr className="bg-dark-bg/20">
+                          <Th className="text-[10px] uppercase tracking-wider">Name</Th>
+                          <Th className="text-[10px] uppercase tracking-wider">Email</Th>
+                          <Th className="text-[10px] uppercase tracking-wider text-right">Action</Th>
+                        </Tr>
+                      </Thead>
                       <Tbody>
                         {assignedEmployees.map((employee) => (
-                          <Tr key={employee.id} className={selectedEmployeeId === employee.id ? 'bg-brand-primary/5' : ''}>
-                            <Td><button className="font-semibold text-brand-primary" onClick={() => setSelectedEmployeeId(employee.id)}>{employee.name}</button></Td>
-                            <Td className="max-w-[180px] truncate" title={employee.email}>{employee.email}</Td>
-                            <Td className="text-right"><button className="text-content-muted hover:text-brand-danger" onClick={() => handleUnassignEmployee(employee.id)}><Trash2 className="h-4 w-4" /></button></Td>
+                          <Tr key={employee.id} className={cn("hover:bg-brand-primary/[0.03] transition-colors", selectedEmployeeId === employee.id ? 'bg-brand-primary/5' : '')}>
+                            <Td>
+                              <div className="max-w-[120px] truncate" title={employee.name}>
+                                <button className="font-bold text-brand-primary text-xs" onClick={() => setSelectedEmployeeId(employee.id)}>{employee.name}</button>
+                              </div>
+                            </Td>
+                            <Td>
+                              <div className="max-w-[160px] truncate text-xs text-content-secondary" title={employee.email}>
+                                {employee.email}
+                              </div>
+                            </Td>
+                            <Td className="text-right"><button className="text-content-muted hover:text-brand-danger transition-colors p-1" onClick={() => handleUnassignEmployee(employee.id)}><Trash2 className="h-4 w-4" /></button></Td>
                           </Tr>
                         ))}
-                        {assignedEmployees.length === 0 && <Tr><Td colSpan={3} className="py-8 text-center text-content-muted">No employees assigned.</Td></Tr>}
+                        {assignedEmployees.length === 0 && <Tr><Td colSpan={3} className="py-8 text-center text-[10px] font-bold uppercase tracking-widest text-content-muted">No employees assigned.</Td></Tr>}
                       </Tbody>
                     </Table>
                   </div>
 
-                  <div className="card motion-card motion-sheen p-5 min-w-0 overflow-hidden">
-                    <h3 className="mb-4 flex items-center gap-2 font-semibold text-content-primary"><Clock className="h-4 w-4 text-brand-primary" /> Upload Timings</h3>
-                    <form onSubmit={handleAddTiming} className="mb-4 flex gap-2">
-                      <Input type="time" value={timingName} onChange={(e) => setTimingName(e.target.value)} />
-                      <Button type="submit">Add</Button>
-                    </form>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md min-w-0">
+                    <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex items-center justify-between">
+                      <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-content-primary"><Clock className="h-3.5 w-3.5 text-brand-primary" /> Business Timings</h3>
+                    </div>
+                    <div className="p-4 border-b border-dark-border/50 bg-dark-bg/20">
+                      <form onSubmit={handleAddTiming} className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <Input type="time" label="Add Timing Slot" value={timingName} onChange={(e) => setTimingName(e.target.value)} className="h-10" />
+                        </div>
+                        <Button type="submit" className="h-10 px-4 text-xs font-black uppercase tracking-wider">Add</Button>
+                      </form>
+                    </div>
+                    <div className="p-5 flex flex-wrap gap-2">
                       {timings.map((timing) => (
                         editingTimingId === timing.id ? (
                           <span key={timing.id} className="inline-flex items-center gap-2 rounded-xl border border-brand-primary/30 bg-brand-primary/5 px-2 py-1 text-sm">
@@ -458,34 +485,37 @@ const Businesses = () => {
                               value={editingTimingName}
                               onChange={(event) => setEditingTimingName(event.target.value)}
                             />
-                            <button onClick={handleUpdateTiming} className="font-semibold text-brand-primary">Save</button>
-                            <button onClick={() => setEditingTimingId('')} className="text-content-muted">Cancel</button>
+                            <button onClick={handleUpdateTiming} className="font-semibold text-brand-primary text-xs">Save</button>
+                            <button onClick={() => setEditingTimingId('')} className="text-content-muted text-xs">Cancel</button>
                           </span>
                         ) : (
-                          <span key={timing.id} className="inline-flex items-center gap-2 rounded-full border border-dark-border bg-dark-bg px-3 py-1.5 text-sm text-content-primary">
-                            <button onClick={() => startEditTiming(timing)} className="font-medium hover:text-brand-primary">{timing.timing_name}</button>
+                          <span key={timing.id} className="inline-flex items-center gap-2 rounded-full border border-dark-border bg-dark-bg px-3 py-1.5 text-xs text-content-primary hover:border-brand-primary/40 transition-colors">
+                            <button onClick={() => startEditTiming(timing)} className="font-semibold hover:text-brand-primary">{timing.timing_name}</button>
                             <button onClick={() => handleDeleteTiming(timing.id)} className="text-content-muted hover:text-brand-danger"><Trash2 className="h-3.5 w-3.5" /></button>
                           </span>
                         )
                       ))}
-                      {timings.length === 0 && <p className="text-sm text-content-muted">No timings configured.</p>}
+                      {timings.length === 0 && <p className="text-[10px] font-bold uppercase tracking-widest text-content-muted">No timings configured.</p>}
                     </div>
                   </div>
                 </div>
 
-                <div className="card motion-card p-5">
-                  <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-content-primary">
-                    <Target className="h-4 w-4 text-brand-success" />
-                    Set Target For This Business
-                  </h3>
+                <div className="card border-dark-border/40 bg-dark-surface/40 p-5 backdrop-blur-md shadow-md animate-fade-in">
+                  <div className="border-b border-dark-border/60 pb-3 mb-4">
+                    <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-content-primary">
+                      <Target className="h-3.5 w-3.5 text-brand-success" />
+                      Set Target For This Business
+                    </h3>
+                  </div>
                   
                   <form onSubmit={handleSetBusinessTarget} className="space-y-4">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-[1.4fr_0.8fr_1.1fr_1.1fr_1.4fr_1fr] items-end">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-[1.4fr_0.8fr_1.1fr_1.1fr_1.4fr_1fr] items-end w-full min-w-0">
                       <Input
                         label="Metric"
                         value={businessTarget.targetName}
                         onChange={(event) => setBusinessTarget({ ...businessTarget, targetName: event.target.value })}
                         placeholder="Calls Made"
+                        className="h-10"
                       />
                       <Input
                         label="Value"
@@ -493,28 +523,31 @@ const Businesses = () => {
                         value={businessTarget.targetValue}
                         onChange={(event) => setBusinessTarget({ ...businessTarget, targetValue: event.target.value })}
                         placeholder="100"
+                        className="h-10"
                       />
                       <Input
                         label="Start"
                         type="date"
                         value={businessTarget.startDate}
                         onChange={(event) => setBusinessTarget({ ...businessTarget, startDate: event.target.value })}
+                        className="h-10"
                       />
                       <Input
                         label="End"
                         type="date"
                         value={businessTarget.endDate}
                         onChange={(event) => setBusinessTarget({ ...businessTarget, endDate: event.target.value })}
+                        className="h-10"
                       />
 
                       <div className="relative w-full" ref={dropdownRef}>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-content-secondary mb-1.5">
+                        <label className="block text-xs font-semibold uppercase tracking-wide text-content-secondary mb-1.5 ml-1">
                           Employees
                         </label>
                         <button
                           type="button"
                           onClick={() => setShowEmployeeDropdown(!showEmployeeDropdown)}
-                          className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary text-sm flex items-center justify-between hover:border-brand-primary/50 transition-colors h-10"
+                          className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary flex items-center justify-between hover:border-brand-primary/50 transition-colors h-10"
                         >
                           <span className="truncate">
                             {assignToAll
@@ -590,7 +623,7 @@ const Businesses = () => {
                       <div className="w-full">
                         <Button
                           type="submit"
-                          className="w-full h-10"
+                          className="w-full h-10 text-xs font-black uppercase tracking-wider"
                           disabled={assignedEmployees.length === 0}
                         >
                           Set Target
@@ -600,47 +633,56 @@ const Businesses = () => {
                   </form>
                 </div>
 
-                <div className="card motion-card motion-sheen p-5">
-                  <h3 className="mb-4 flex items-center gap-2 font-semibold text-content-primary"><FileText className="h-4 w-4 text-brand-primary" /> Reporting Forms & Custom Fields</h3>
-                  <form onSubmit={handleAddActivity} className="mb-4 flex gap-2">
-                    <Input value={activityName} onChange={(e) => setActivityName(e.target.value)} placeholder="Example: Calls, Visits, Follow-ups" />
-                    <Button type="submit">Add Form</Button>
-                  </form>
-                  <div className="space-y-4">
+                <div className="card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md">
+                  <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex items-center justify-between">
+                    <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-content-primary"><FileText className="h-3.5 w-3.5 text-brand-primary" /> Reporting Forms & Custom Fields</h3>
+                  </div>
+                  <div className="p-4 border-b border-dark-border/50 bg-dark-bg/20">
+                    <form onSubmit={handleAddActivity} className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <Input label="Add Reporting Category" value={activityName} onChange={(e) => setActivityName(e.target.value)} placeholder="Example: Calls, Visits, Follow-ups" className="h-10" />
+                      </div>
+                      <Button type="submit" className="h-10 px-4 text-xs font-black uppercase tracking-wider">Add Form</Button>
+                    </form>
+                  </div>
+                  <div className="p-5 space-y-4">
                     {activityTypes.map((activity) => {
                       const fieldForm = fieldForms[activity.id] || emptyField;
                       return (
                         <div key={activity.id} className="rounded-xl border border-dark-border bg-dark-bg/50 p-4">
                           <div className="mb-3 flex items-center justify-between gap-3">
-                            <h4 className="font-semibold text-content-primary">{activity.name}</h4>
-                            <button onClick={() => handleDeleteActivity(activity.id)} className="text-content-muted hover:text-brand-danger"><Trash2 className="h-4 w-4" /></button>
+                            <h4 className="font-bold text-content-primary text-xs uppercase tracking-wider">{activity.name}</h4>
+                            <button onClick={() => handleDeleteActivity(activity.id)} className="text-content-muted hover:text-brand-danger transition-colors"><Trash2 className="h-4 w-4" /></button>
                           </div>
-                          <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_150px_120px_auto]">
-                            <Input value={fieldForm.fieldName || ''} onChange={(e) => updateFieldForm(activity.id, 'fieldName', e.target.value)} placeholder="Field name" />
-                            <select className="input-field" value={fieldForm.fieldType || 'number'} onChange={(e) => updateFieldForm(activity.id, 'fieldType', e.target.value)}>
-                              <option value="number">Number</option>
-                              <option value="text">Text</option>
-                              <option value="textarea">Textarea</option>
-                              <option value="checkbox">Checkbox</option>
-                            </select>
-                            <label className="flex items-center gap-2 rounded-lg border border-dark-border px-3 text-sm text-content-secondary">
-                              <input type="checkbox" checked={Boolean(fieldForm.required)} onChange={(e) => updateFieldForm(activity.id, 'required', e.target.checked)} /> Required
+                          <div className="mb-3 grid grid-cols-1 gap-2 md:grid-cols-[1fr_150px_120px_auto] items-end">
+                            <Input label="Field Name" value={fieldForm.fieldName || ''} onChange={(e) => updateFieldForm(activity.id, 'fieldName', e.target.value)} placeholder="Field name" className="h-10" />
+                            <div className="space-y-1">
+                              <label className="block text-[10px] font-bold uppercase tracking-wider text-content-secondary mb-1.5 ml-1">Type</label>
+                              <select className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10" value={fieldForm.fieldType || 'number'} onChange={(e) => updateFieldForm(activity.id, 'fieldType', e.target.value)}>
+                                <option value="number">Number</option>
+                                <option value="text">Text</option>
+                                <option value="textarea">Textarea</option>
+                                <option value="checkbox">Checkbox</option>
+                              </select>
+                            </div>
+                            <label className="flex items-center gap-2 rounded-lg border border-dark-border px-3 text-sm text-content-secondary h-10 select-none cursor-pointer">
+                              <input type="checkbox" checked={Boolean(fieldForm.required)} onChange={(e) => updateFieldForm(activity.id, 'required', e.target.checked)} className="h-3.5 w-3.5 rounded border-dark-border bg-dark-bg text-brand-primary focus:ring-brand-primary" /> Required
                             </label>
-                            <Button type="button" onClick={() => handleAddField(activity.id)}>Add Field</Button>
+                            <Button type="button" onClick={() => handleAddField(activity.id)} className="h-10 text-xs font-black uppercase tracking-wider">Add Field</Button>
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {(fieldsByActivity[activity.id] || []).map((field) => (
-                              <span key={field.id} className="inline-flex items-center gap-2 rounded-full border border-dark-border bg-dark-surface px-3 py-1.5 text-sm text-content-primary">
-                                {field.field_name} <span className="text-xs text-content-muted">{field.field_type}</span>
+                              <span key={field.id} className="inline-flex items-center gap-2 rounded-full border border-dark-border bg-dark-surface px-3 py-1.5 text-xs text-content-primary hover:border-brand-primary/40 transition-colors">
+                                <span className="font-semibold">{field.field_name}</span> <span className="text-[10px] text-content-muted font-mono uppercase">({field.field_type})</span>
                                 <button onClick={() => handleDeleteField(activity.id, field.id)} className="text-content-muted hover:text-brand-danger"><Trash2 className="h-3.5 w-3.5" /></button>
                               </span>
                             ))}
-                            {(fieldsByActivity[activity.id] || []).length === 0 && <p className="text-sm text-content-muted">No custom fields yet.</p>}
+                            {(fieldsByActivity[activity.id] || []).length === 0 && <p className="text-[10px] font-bold uppercase tracking-widest text-content-muted">No custom fields yet.</p>}
                           </div>
                         </div>
                       );
                     })}
-                    {activityTypes.length === 0 && <p className="rounded-xl border border-dashed border-dark-border p-5 text-center text-content-muted">No reporting forms configured.</p>}
+                    {activityTypes.length === 0 && <p className="rounded-xl border border-dashed border-dark-border p-5 text-center text-[10px] font-bold uppercase tracking-widest text-content-muted">No reporting forms configured.</p>}
                   </div>
                 </div>
 
@@ -657,7 +699,7 @@ const Businesses = () => {
             )}
           </div>
         ) : (
-          <div className="card motion-card motion-sheen flex min-h-[320px] items-center justify-center p-5 text-center text-content-muted">
+          <div className="card border-dark-border/40 bg-dark-surface/40 flex min-h-[320px] items-center justify-center p-5 text-center text-[11px] font-bold uppercase tracking-widest text-content-muted shadow-md">
             Create or select a business to manage its employees, timings, fields, and analytics.
           </div>
         )}

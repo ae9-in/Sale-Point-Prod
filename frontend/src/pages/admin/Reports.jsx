@@ -131,26 +131,26 @@ const Reports = () => {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-1">
         <div>
-          <h1 className="text-lg font-bold text-content-primary">Employee Performance Reports</h1>
-          <p className="text-content-secondary mt-1">Review and export daily performance reports submitted by employees.</p>
+          <h1 className="text-xl md:text-2xl font-black text-content-primary tracking-tight">Employee Performance Reports</h1>
+          <p className="mt-1 text-xs text-content-secondary uppercase tracking-[0.15em] font-bold">Review and export daily performance reports submitted by employees.</p>
         </div>
-        <Button variant="secondary" onClick={handleExport} disabled={reports.length === 0}>
+        <Button variant="secondary" onClick={handleExport} disabled={reports.length === 0} className="h-9 text-[11px] font-black uppercase tracking-wider">
           <Download className="mr-2 h-4 w-4" />
           Export Reports
         </Button>
       </div>
 
       {/* Filters Bar */}
-      <div className="card motion-card motion-sheen p-5 bg-dark-surface/50 border border-dark-border grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 items-end">
+      <div className="card border-dark-border/40 bg-dark-surface/40 p-4 backdrop-blur-md shadow-md grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-4 items-end">
         <div>
-          <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Filter Location</label>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 ml-1">Filter Location</label>
           <select
             name="locationId"
             value={filters.locationId}
             onChange={handleFilterChange}
-            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm transition-colors"
+            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10"
           >
             <option value="">All Locations</option>
             {locations.map(loc => <option key={loc.id} value={loc.id}>{loc.name}</option>)}
@@ -158,12 +158,12 @@ const Reports = () => {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Filter Employee</label>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 ml-1">Filter Employee</label>
           <select
             name="employeeId"
             value={filters.employeeId}
             onChange={handleFilterChange}
-            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm transition-colors"
+            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10"
           >
             <option value="">All Employees</option>
             {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -171,23 +171,23 @@ const Reports = () => {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Search Employee</label>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 ml-1">Search Employee</label>
           <input
             type="text"
             placeholder="Type name..."
             value={employeeSearch}
             onChange={(e) => setEmployeeSearch(e.target.value)}
-            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm h-10 transition-colors placeholder:text-content-muted/50"
+            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10 placeholder:text-content-muted/50"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Filter Business</label>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 ml-1">Filter Business</label>
           <select
             name="businessId"
             value={filters.businessId}
             onChange={handleFilterChange}
-            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm transition-colors"
+            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10"
           >
             <option value="">All Businesses</option>
             {businesses.map(b => <option key={b.id} value={b.id}>{b.business_name}</option>)}
@@ -195,12 +195,12 @@ const Reports = () => {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-content-secondary uppercase tracking-wider mb-2">Filter Activity Type</label>
+          <label className="block text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 ml-1">Filter Activity Type</label>
           <select
             name="activityType"
             value={filters.activityType}
             onChange={handleFilterChange}
-            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-content-primary focus:outline-none focus:border-brand-primary text-sm transition-colors"
+            className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10"
           >
             <option value="">All Activities</option>
             <option value="Callings">Callings</option>
@@ -215,13 +215,14 @@ const Reports = () => {
             type="date"
             value={filters.date}
             onChange={handleFilterChange}
+            className="h-10"
           />
         </div>
 
         <div>
           <Button 
             variant="secondary" 
-            className="w-full h-10"
+            className="w-full h-10 text-xs font-black uppercase tracking-wider mb-0.5"
             onClick={handleClearFilters}
             disabled={!filters.employeeId && !filters.businessId && !filters.date && !filters.locationId && !filters.activityType && !employeeSearch}
           >
@@ -239,46 +240,45 @@ const Reports = () => {
       )}
 
       {/* Reports List */}
-      <div className="card motion-card motion-sheen overflow-hidden">
+      <div className="card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md">
         {loading ? (
           <div className="flex h-64 items-center justify-center">
             <Spinner size="lg" />
           </div>
         ) : filteredReports.length === 0 ? (
-          <div className="p-5 text-center text-content-muted">
+          <div className="py-12 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">
             No performance reports match the selected filters or search.
           </div>
         ) : (
-          <div className="overflow-x-auto">
             <Table>
               <Thead>
-                <Tr>
-                  <Th>Employee</Th>
-                  <Th>Business</Th>
-                  <Th>Timing & Type</Th>
-                  <Th>Report Date</Th>
-                  <Th className="text-right">Action</Th>
+                <Tr className="bg-dark-bg/20">
+                  <Th className="text-[10px] uppercase tracking-wider">Employee</Th>
+                  <Th className="text-[10px] uppercase tracking-wider">Business</Th>
+                  <Th className="text-[10px] uppercase tracking-wider">Timing & Type</Th>
+                  <Th className="text-[10px] uppercase tracking-wider">Report Date</Th>
+                  <Th className="text-[10px] uppercase tracking-wider text-right">Action</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {filteredReports.map((rep) => (
-                  <Tr key={rep.id}>
-                    <Td className="font-semibold text-content-primary">{rep.employee_name}</Td>
-                    <Td className="text-content-secondary">{rep.business_name}</Td>
+                  <Tr key={rep.id} className="hover:bg-brand-primary/[0.03] transition-colors">
+                    <Td className="font-bold text-content-primary text-xs">{rep.employee_name}</Td>
+                    <Td className="text-xs text-content-secondary">{rep.business_name}</Td>
                     <Td>
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5 text-xs text-content-secondary">
                           <Clock className="w-3.5 h-3.5 text-brand-secondary" />
                           <span>{rep.timing_name}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-content-muted">
-                          <FileText className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-1.5 text-[10px] text-content-muted uppercase font-bold">
+                          <FileText className="w-3.5 h-3.5 text-content-muted" />
                           <span>{rep.activity_name}</span>
                         </div>
                       </div>
                     </Td>
                     <Td>
-                      <div className="flex items-center gap-1.5 text-content-secondary">
+                      <div className="flex items-center gap-1.5 text-xs text-content-secondary font-mono">
                         <Calendar className="w-3.5 h-3.5 text-content-muted" />
                         <span>{new Date(rep.report_date).toLocaleDateString()}</span>
                       </div>
@@ -288,8 +288,9 @@ const Reports = () => {
                         size="sm" 
                         variant="secondary" 
                         onClick={() => handleViewReport(rep.id)}
+                        className="h-7 text-[9px] font-black uppercase tracking-wider px-2.5"
                       >
-                        <Eye className="w-4 h-4 mr-1.5" />
+                        <Eye className="w-3.5 h-3.5 mr-1" />
                         View Details
                       </Button>
                     </Td>
@@ -297,14 +298,13 @@ const Reports = () => {
                 ))}
               </Tbody>
             </Table>
-          </div>
         )}
       </div>
 
       {/* Detail Modal */}
       {selectedReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="card motion-card motion-sheen w-full max-w-lg p-5 bg-dark-surface border border-dark-border shadow-2xl relative animate-scale-up">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="card w-full max-w-lg p-6 bg-dark-surface/90 border border-dark-border/60 shadow-2xl relative animate-scale-up backdrop-blur-md">
             <button
               onClick={() => setSelectedReport(null)}
               className="absolute right-4 top-4 text-content-muted hover:text-content-primary p-1 rounded-md transition-colors"
@@ -312,8 +312,8 @@ const Reports = () => {
               <X className="w-4 h-4" />
             </button>
 
-            <h3 className="text-base font-bold text-content-primary mb-4 flex items-center gap-2 border-b border-dark-border pb-3">
-              <FileText className="w-5.5 h-5.5 text-brand-primary" />
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-content-primary mb-4 flex items-center gap-2 border-b border-dark-border pb-3">
+              <FileText className="w-4 h-4 text-brand-primary" />
               Report Submission Details
             </h3>
 
@@ -327,28 +327,28 @@ const Reports = () => {
                 {/* Meta details */}
                 <div className="grid grid-cols-2 gap-4 bg-dark-bg p-4 rounded-lg border border-dark-border text-xs">
                   <div className="space-y-1.5">
-                    <div className="text-content-muted uppercase tracking-wider font-semibold">Employee</div>
-                    <div className="text-content-primary font-medium flex items-center gap-1">
+                    <div className="text-content-muted uppercase tracking-wider font-semibold text-[9px]">Employee</div>
+                    <div className="text-content-primary font-bold flex items-center gap-1">
                       <User className="w-3.5 h-3.5 text-brand-primary" />
                       {selectedReport.employee_name}
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <div className="text-content-muted uppercase tracking-wider font-semibold">Business</div>
-                    <div className="text-content-primary font-medium flex items-center gap-1">
+                    <div className="text-content-muted uppercase tracking-wider font-semibold text-[9px]">Business</div>
+                    <div className="text-content-primary font-bold flex items-center gap-1">
                       <Building2 className="w-3.5 h-3.5 text-brand-secondary" />
                       {selectedReport.business_name}
                     </div>
                   </div>
                   <div className="space-y-1.5 mt-2">
-                    <div className="text-content-muted uppercase tracking-wider font-semibold">Timing Window</div>
+                    <div className="text-content-muted uppercase tracking-wider font-semibold text-[9px]">Timing Window</div>
                     <div className="text-content-primary font-medium flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5 text-brand-secondary" />
                       {selectedReport.timing_name}
                     </div>
                   </div>
                   <div className="space-y-1.5 mt-2">
-                    <div className="text-content-muted uppercase tracking-wider font-semibold">Activity Sub-Type</div>
+                    <div className="text-content-muted uppercase tracking-wider font-semibold text-[9px]">Activity Sub-Type</div>
                     <div className="text-content-primary font-medium flex items-center gap-1">
                       <FileText className="w-3.5 h-3.5 text-brand-primary" />
                       {selectedReport.activity_name}
@@ -358,12 +358,12 @@ const Reports = () => {
 
                 {/* Form fields & answers */}
                 <div className="space-y-4">
-                  <h4 className="text-sm font-semibold text-content-primary uppercase tracking-wider border-b border-dark-border pb-1">Dynamic Answers</h4>
+                  <h4 className="text-[9px] font-black text-content-primary uppercase tracking-widest border-b border-dark-border pb-1">Dynamic Answers</h4>
                   <div className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
                     {selectedReport.answers?.map((ans, idx) => (
                       <div key={idx} className="bg-dark-bg/40 p-3 rounded-lg border border-dark-border/50">
-                        <div className="text-xs text-content-muted font-medium mb-1">{ans.field_name}</div>
-                        <div className="text-sm text-content-primary font-semibold">
+                        <div className="text-[10px] text-content-muted font-bold uppercase mb-1">{ans.field_name}</div>
+                        <div className="text-xs text-content-primary font-semibold">
                           {ans.field_type === 'textarea' ? (
                             <p className="whitespace-pre-wrap font-normal text-content-secondary leading-relaxed">{ans.value || 'N/A'}</p>
                           ) : (
@@ -376,7 +376,7 @@ const Reports = () => {
                 </div>
 
                 <div className="flex justify-end pt-4 border-t border-dark-border">
-                  <Button variant="secondary" onClick={() => setSelectedReport(null)}>Close</Button>
+                  <Button variant="secondary" onClick={() => setSelectedReport(null)} className="h-9 text-[11px] font-black uppercase tracking-wider">Close</Button>
                 </div>
               </div>
             )}

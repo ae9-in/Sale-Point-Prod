@@ -41,32 +41,65 @@ const PageLoader = () => (
 
 const AppRouter = () => {
   const { _hasHydrated, isAuthenticated, setAuth, logout } = useAuthStore();
-  const [isValidating, setIsValidating] = useState(isAuthenticated);
+  const [isValidating, setIsValidating] = useState(true);
+  const [sessionVerified, setSessionVerified] = useState(false);
 
   useEffect(() => {
-    if (_hasHydrated) {
+    if (!_hasHydrated || sessionVerified) return;
+
+    let isMounted = true;
+
+    const runVerification = async () => {
       if (isAuthenticated) {
-        const verifySession = async () => {
-          try {
-            const res = await axiosInstance.get('/auth/me');
+        try {
+          const res = await axiosInstance.get('/auth/me');
+          if (isMounted) {
             setAuth(res.data.data, useAuthStore.getState().token);
-          } catch (err) {
-            console.error('Initial session verification failed:', err);
-            // If it's an authentication error (401 or 403), the interceptor will have logged out and redirected.
-            // If it's a network issue or server error, we keep the current session and let it run.
-            if (err.response && (err.response.status === 401 || err.response.status === 403)) {
-              logout();
-            }
-          } finally {
+          }
+        } catch (err) {
+          console.error('Initial session verification failed:', err);
+          // If it's an authentication error (401 or 403), the interceptor will have logged out and redirected.
+          // If it's a network issue or server error, we keep the current session and let it run.
+          if (isMounted && err.response && (err.response.status === 401 || err.response.status === 403)) {
+            logout();
+          }
+        } finally {
+          if (isMounted) {
+            setSessionVerified(true);
             setIsValidating(false);
           }
-        };
-        verifySession();
+        }
       } else {
-        setIsValidating(false);
+        // Attempt a silent refresh on mount even if store has isAuthenticated = false,
+        // in case a valid HttpOnly refresh token cookie exists in the browser.
+        try {
+          const res = await axiosInstance.post('/auth/refresh');
+          const { accessToken } = res.data.data;
+          const userRes = await axiosInstance.get('/auth/me', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          if (isMounted) {
+            setAuth(userRes.data.data, accessToken);
+          }
+        } catch (err) {
+          if (isMounted) {
+            logout();
+          }
+        } finally {
+          if (isMounted) {
+            setSessionVerified(true);
+            setIsValidating(false);
+          }
+        }
       }
-    }
-  }, [_hasHydrated, isAuthenticated, setAuth, logout]);
+    };
+
+    runVerification();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [_hasHydrated, isAuthenticated, sessionVerified, setAuth, logout]);
 
   if (!_hasHydrated || isValidating) return <PageLoader />;
 

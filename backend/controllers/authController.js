@@ -50,15 +50,15 @@ const login = async (req, res, next) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    // Save refresh token in DB (30 days)
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    // Save refresh token in DB (365 days)
+    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
     await query('INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)', [user.id, refreshToken, expiresAt]);
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      maxAge: 365 * 24 * 60 * 60 * 1000
     });
 
     const { password: _, ...userData } = user;
@@ -88,14 +88,14 @@ const refresh = async (req, res, next) => {
       if (userRes.rows.length === 0) return errorResponse(res, 'User not found', 404, 'NOT_FOUND');
       
       // Slide session: update expiration date in DB and cookie
-      const newExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const newExpiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
       await query('UPDATE refresh_tokens SET expires_at = $1 WHERE id = $2', [newExpiresAt, tokenData.id]);
 
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 30 * 24 * 60 * 60 * 1000
+        maxAge: 365 * 24 * 60 * 60 * 1000
       });
 
       const newAccessToken = generateAccessToken(userRes.rows[0]);
