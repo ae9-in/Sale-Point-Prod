@@ -3,7 +3,7 @@ const router = express.Router();
 const { 
   getUsers, approveUser, rejectUser, createUser, deleteUser,
   updateUserPassword, assignBusiness, unassignBusiness, getEmployeeBusinesses,
-  getBusinessEmployees, updateUserLocation
+  getBusinessEmployees, updateUserLocation, updateEmployeeTimings
 } = require('../controllers/adminController');
 const authenticate = require('../middleware/authenticate');
 const authorize = require('../middleware/authorize');
@@ -45,5 +45,6 @@ router.post('/assign', [
 ], validate, assignBusiness);
 
 router.delete('/assign/:employeeId/:businessId', unassignBusiness);
+router.put('/employees/:employeeId/businesses/:businessId/timings', updateEmployeeTimings);
 
 module.exports = router;

@@ -8,6 +8,7 @@ import { Table, Thead, Tbody, Tr, Th, Td } from '../../components/ui/Table';
 import toast from 'react-hot-toast';
 import { Building2, Clock, FileText, Plus, Target, Trash2, UserPlus, Users, ChevronDown } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import BusinessCustomTimingsModal from '../../components/admin/BusinessCustomTimingsModal';
 
 const emptyBusiness = { businessName: '', description: '' };
 const emptyField = { fieldName: '', fieldType: 'number', required: false };
@@ -38,6 +39,7 @@ const Businesses = () => {
   const [selectedTargetEmployeeIds, setSelectedTargetEmployeeIds] = useState([]);
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
   const dropdownRef = useRef(null);
+  const [showCustomTimingsModal, setShowCustomTimingsModal] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -455,7 +457,9 @@ const Businesses = () => {
                                 {employee.email}
                               </div>
                             </Td>
-                            <Td className="text-right"><button className="text-content-muted hover:text-brand-danger transition-colors p-1" onClick={() => handleUnassignEmployee(employee.id)}><Trash2 className="h-4 w-4" /></button></Td>
+                            <Td className="text-right">
+                              <button className="text-content-muted hover:text-brand-danger transition-colors p-1" onClick={() => handleUnassignEmployee(employee.id)} title="Unassign Employee"><Trash2 className="h-4 w-4" /></button>
+                            </Td>
                           </Tr>
                         ))}
                         {assignedEmployees.length === 0 && <Tr><Td colSpan={3} className="py-8 text-center text-[10px] font-bold uppercase tracking-widest text-content-muted">No employees assigned.</Td></Tr>}
@@ -466,6 +470,12 @@ const Businesses = () => {
                   <div className="card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md min-w-0">
                     <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex items-center justify-between">
                       <h3 className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-content-primary"><Clock className="h-3.5 w-3.5 text-brand-primary" /> Business Timings</h3>
+                      <button 
+                        onClick={() => setShowCustomTimingsModal(true)}
+                        className="text-[9px] font-black uppercase tracking-widest text-brand-primary hover:text-brand-secondary transition-colors px-2 py-1 bg-brand-primary/10 rounded-md border border-brand-primary/20"
+                      >
+                        Custom Timings
+                      </button>
                     </div>
                     <div className="p-4 border-b border-dark-border/50 bg-dark-bg/20">
                       <form onSubmit={handleAddTiming} className="flex gap-2 items-end">
@@ -704,6 +714,14 @@ const Businesses = () => {
           </div>
         )}
       </div>
+
+      {showCustomTimingsModal && selectedBusiness && (
+        <BusinessCustomTimingsModal
+          business={selectedBusiness}
+          assignedEmployees={assignedEmployees}
+          onClose={() => setShowCustomTimingsModal(false)}
+        />
+      )}
     </div>
   );
 };

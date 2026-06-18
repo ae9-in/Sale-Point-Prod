@@ -251,7 +251,7 @@ const getPerformance = async (req, res, next) => {
 
 const getSubmissionStatus = async (req, res, next) => {
   try {
-    const { businessId, date, locationId } = req.query;
+    const { businessId, employeeId, date, fromDate, toDate, locationId } = req.query;
     if (!businessId) {
       return res.status(400).json({ success: false, error: 'Business ID is required' });
     }
@@ -264,6 +264,21 @@ const getSubmissionStatus = async (req, res, next) => {
     };
 
     const targetDate = date || getLocalDateString();
+    const startStr = fromDate || targetDate;
+    const endStr = toDate || targetDate;
+
+    const startD = new Date(startStr);
+    const endD = new Date(endStr);
+    const dates = [];
+    
+    // limit to 31 days to prevent abuse
+    let curr = new Date(startD);
+    let count = 0;
+    while(curr <= endD && count < 31) {
+      dates.push(getLocalDateString(curr));
+      curr.setDate(curr.getDate() + 1);
+      count++;
+    }
 
     // 1. Fetch all active employees assigned to this business
     let employeeSql = `
@@ -273,9 +288,14 @@ const getSubmissionStatus = async (req, res, next) => {
       WHERE eb.business_id = $1 AND u.role = 'EMPLOYEE' AND u.status = 'APPROVED'
     `;
     const employeeParams = [businessId];
+    let empParamIdx = 2;
     if (locationId) {
-      employeeSql += ` AND u.location_id = $2`;
+      employeeSql += ` AND u.location_id = $${empParamIdx++}`;
       employeeParams.push(locationId);
+    }
+    if (employeeId) {
+      employeeSql += ` AND u.id = $${empParamIdx++}`;
+      employeeParams.push(employeeId);
     }
     employeeSql += ` ORDER BY u.name ASC`;
     const employeesRes = await query(employeeSql, employeeParams);
@@ -286,17 +306,22 @@ const getSubmissionStatus = async (req, res, next) => {
       [businessId]
     );
 
-    // 3. Fetch all reports for this business on targetDate
+    // 3. Fetch all reports for this business within dates
     let reportSql = `
       SELECT er.id, er.employee_id, er.timing_id, er.created_at, er.report_date
       FROM employee_reports er
       JOIN users u ON er.employee_id = u.id
-      WHERE er.business_id = $1 AND er.report_date = $2
+      WHERE er.business_id = $1 AND er.report_date >= $2 AND er.report_date <= $3
     `;
-    const reportParams = [businessId, targetDate];
+    const reportParams = [businessId, startStr, endStr];
+    let repParamIdx = 4;
     if (locationId) {
-      reportSql += ` AND u.location_id = $3`;
+      reportSql += ` AND u.location_id = $${repParamIdx++}`;
       reportParams.push(locationId);
+    }
+    if (employeeId) {
+      reportSql += ` AND er.employee_id = $${repParamIdx++}`;
+      reportParams.push(employeeId);
     }
     const reportsRes = await query(reportSql, reportParams);
 
@@ -318,62 +343,113 @@ const getSubmissionStatus = async (req, res, next) => {
 
     const now = new Date();
 
-    // Map submissions for easy lookup: employeeId -> timingId -> report
+    // Map submissions for easy lookup: employeeId -> reportDate -> timingId -> report
     const submissionMap = {};
     for (const rep of reportsRes.rows) {
-      if (!submissionMap[rep.employee_id]) {
-        submissionMap[rep.employee_id] = {};
-      }
-      submissionMap[rep.employee_id][rep.timing_id] = rep;
+      if (!submissionMap[rep.employee_id]) submissionMap[rep.employee_id] = {};
+      const rDate = getLocalDateString(new Date(rep.report_date));
+      if (!submissionMap[rep.employee_id][rDate]) submissionMap[rep.employee_id][rDate] = {};
+      submissionMap[rep.employee_id][rDate][rep.timing_id] = rep;
     }
 
-    // Prepare status matrix
-    const matrix = employeesRes.rows.map(emp => {
-      const rowTimings = sortedTimings.map(t => {
-        const submission = submissionMap[emp.id]?.[t.id];
-        let status = 'PENDING'; // default
-        let submittedAt = null;
-
-        const { hours, minutes } = parseTimingString(t.timing_name);
-        const [yr, mo, dy] = targetDate.split('-').map(Number);
-        const dueTime = new Date(yr, mo - 1, dy, hours, minutes, 0, 0);
-
-        if (submission) {
-          submittedAt = submission.created_at; // Date object
-          const submittedDate = new Date(submittedAt);
-          if (submittedDate <= dueTime) {
-            status = 'ON_TIME';
-          } else {
-            status = 'LATE';
-          }
-        } else {
-          // If no submission, check if timing has crossed
-          if (now > dueTime) {
-            status = 'MISSING';
-          } else {
-            status = 'PENDING';
-          }
-        }
-
-        return {
-          timingId: t.id,
-          timingName: t.timing_name,
-          status,
-          submittedAt
-        };
-      });
-
-      return {
-        employeeId: emp.id,
-        employeeName: emp.name,
-        timings: rowTimings
-      };
+    // Fetch custom timings enablement for all employees in this business
+    const customTimingsEnabledRes = await query(
+      'SELECT employee_id, custom_timings_enabled FROM employee_businesses WHERE business_id = $1',
+      [businessId]
+    );
+    const customTimingsEnabledMap = {};
+    customTimingsEnabledRes.rows.forEach(r => {
+      customTimingsEnabledMap[r.employee_id] = r.custom_timings_enabled;
     });
+
+    // Fetch all custom timings entries for this business
+    const customTimingsRes = await query(
+      'SELECT employee_id, timing_id FROM employee_custom_timings WHERE business_id = $1',
+      [businessId]
+    );
+    const employeeActiveTimingsMap = {};
+    customTimingsRes.rows.forEach(r => {
+      if (!employeeActiveTimingsMap[r.employee_id]) {
+        employeeActiveTimingsMap[r.employee_id] = new Set();
+      }
+      employeeActiveTimingsMap[r.employee_id].add(r.timing_id);
+    });
+
+    // Prepare status matrix: flat list of (Employee, Date)
+    const matrix = [];
+
+    for (const emp of employeesRes.rows) {
+      const customTimingsEnabled = customTimingsEnabledMap[emp.id] || false;
+      const activeTimings = employeeActiveTimingsMap[emp.id] || new Set();
+
+      for (const dStr of dates) {
+        let submittedSlots = 0;
+        let totalSlots = 0;
+
+        const rowTimings = sortedTimings.map(t => {
+          const isApplicable = !customTimingsEnabled || activeTimings.has(t.id);
+          const submission = submissionMap[emp.id]?.[dStr]?.[t.id];
+
+          if (!isApplicable) {
+            return {
+              timingId: t.id,
+              timingName: t.timing_name,
+              status: 'NOT_APPLICABLE',
+              submittedAt: null
+            };
+          }
+
+          totalSlots++;
+
+          let status = 'PENDING'; // default
+          let submittedAt = null;
+
+          const { hours, minutes } = parseTimingString(t.timing_name);
+          const [yr, mo, dy] = dStr.split('-').map(Number);
+          const dueTime = new Date(yr, mo - 1, dy, hours, minutes, 0, 0);
+
+          if (submission) {
+            submittedAt = submission.created_at; // Date object
+            const submittedDate = new Date(submittedAt);
+            if (submittedDate <= dueTime) {
+              status = 'ON_TIME';
+            } else {
+              status = 'LATE';
+            }
+            submittedSlots++;
+          } else {
+            // If no submission, check if timing has crossed
+            if (now > dueTime) {
+              status = 'MISSING';
+            } else {
+              status = 'PENDING';
+            }
+          }
+
+          return {
+            timingId: t.id,
+            timingName: t.timing_name,
+            status,
+            submittedAt
+          };
+        });
+
+        matrix.push({
+          employeeId: emp.id,
+          employeeName: emp.name,
+          date: dStr,
+          submittedSlots,
+          totalSlots,
+          timings: rowTimings
+        });
+      }
+    }
 
     return successResponse(res, {
       timings: sortedTimings,
       matrix
     }, 'Submission status fetched successfully');
+
   } catch (err) {
     next(err);
   }

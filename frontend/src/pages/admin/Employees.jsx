@@ -6,8 +6,9 @@ import Input from '../../components/ui/Input';
 import Spinner from '../../components/ui/Spinner';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../../components/ui/Table';
 import toast from 'react-hot-toast';
-import { Briefcase, Calendar, Mail, Phone, Plus, Shield, Trash2, User, MapPin } from 'lucide-react';
+import { Briefcase, Calendar, Mail, Phone, Plus, Shield, Trash2, User, MapPin, Clock } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import ManageTimingsModal from '../../components/admin/ManageTimingsModal';
 
 const emptyForm = { name: '', email: '', phone: '', password: '', locationId: '' };
 
@@ -23,6 +24,8 @@ const Employees = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [assignBusinessId, setAssignBusinessId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showManageTimings, setShowManageTimings] = useState(false);
+  const [selectedBusinessForTimings, setSelectedBusinessForTimings] = useState(null);
 
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.id === selectedEmployeeId),
@@ -331,6 +334,16 @@ const Employees = () => {
                         <Td className="font-mono text-xs text-content-muted">{new Date(business.created_at).toLocaleDateString()}</Td>
                         <Td className="text-right">
                           <button 
+                            onClick={() => {
+                              setSelectedBusinessForTimings(business);
+                              setShowManageTimings(true);
+                            }}
+                            className="text-content-muted hover:text-brand-primary transition-colors p-1 mr-2.5"
+                            title="Manage Timings"
+                          >
+                            <Clock className="h-4 w-4" />
+                          </button>
+                          <button 
                             onClick={() => handleUnassignBusiness(business.id)} 
                             className="text-content-muted hover:text-brand-danger transition-colors p-1"
                             title="Unassign Business"
@@ -361,10 +374,24 @@ const Employees = () => {
           </div>
         )}
       </div>
+
+      {showManageTimings && selectedBusinessForTimings && (
+        <ManageTimingsModal
+          employeeId={selectedEmployee.id}
+          employeeName={selectedEmployee.name}
+          business={selectedBusinessForTimings}
+          onClose={() => {
+            setShowManageTimings(false);
+            setSelectedBusinessForTimings(null);
+          }}
+          onSaveSuccess={() => {
+            fetchEmployeeDetails(selectedEmployee.id);
+          }}
+        />
+      )}
     </div>
   );
 };
-
 export default Employees;
 
 

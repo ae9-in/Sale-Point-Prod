@@ -8,6 +8,7 @@ import { Download, Filter, TrendingUp, BarChart3, Clock, UserCheck } from 'lucid
 import { cn } from '../../utils/cn';
 import SubmissionStatusTracker from './SubmissionStatusTracker';
 import * as XLSX from 'xlsx';
+import { exportToPdf, exportToJpg } from '../../utils/exportUtils';
 
 const currentYear = new Date().getFullYear();
 
@@ -286,6 +287,24 @@ const PerformanceAnalytics = ({
     XLSX.writeFile(wb, `performance-intelligence-${groupBy}.xlsx`);
   };
 
+  const exportPdf = () => {
+    exportToPdf(
+      'Consolidated Performance Analytics',
+      `Market Performance Report - ${filters.activityType} (${groupBy === 'employee' ? 'By Member' : 'By Market Unit'})`,
+      'performance-table-container',
+      `performance-intelligence-${groupBy}.pdf`
+    );
+  };
+
+  const exportJpg = () => {
+    exportToJpg(
+      'Consolidated Performance Analytics',
+      `Market Performance Report - ${filters.activityType} (${groupBy === 'employee' ? 'By Member' : 'By Market Unit'})`,
+      'performance-table-container',
+      `performance-intelligence-${groupBy}.jpg`
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 px-1">
@@ -294,10 +313,20 @@ const PerformanceAnalytics = ({
             <h2 className="text-xl font-black text-content-primary tracking-tight">{title}</h2>
             <p className="text-xs text-content-secondary mt-0.5 uppercase tracking-wider font-bold">Consolidated Performance Overview</p>
           </div>
-          <Button variant="secondary" className="h-9 text-[11px] font-black uppercase tracking-wider" onClick={exportExcel} disabled={data.details.length === 0}>
-            <Download className="mr-2 h-3.5 w-3.5" />
-            Export Ledger
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" className="h-9 text-[11px] font-black uppercase tracking-wider px-3" onClick={exportExcel} disabled={data.details.length === 0}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              Excel
+            </Button>
+            <Button variant="secondary" className="h-9 text-[11px] font-black uppercase tracking-wider px-3" onClick={exportPdf} disabled={data.details.length === 0}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              PDF
+            </Button>
+            <Button variant="secondary" className="h-9 text-[11px] font-black uppercase tracking-wider px-3" onClick={exportJpg} disabled={data.details.length === 0}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              JPG
+            </Button>
+          </div>
         </div>
 
         {/* Global KPI Summary Cards */}
@@ -461,7 +490,7 @@ const PerformanceAnalytics = ({
         </div>
       ) : (
         <>
-          <div className="card overflow-hidden px-0 py-0 border-brand-primary/10">
+          <div id="performance-table-container" className="card overflow-hidden px-0 py-0 border-brand-primary/10">
             <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <TrendingUp size={14} className="text-brand-primary" />

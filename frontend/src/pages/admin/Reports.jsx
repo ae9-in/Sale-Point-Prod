@@ -5,9 +5,10 @@ import Button from '../../components/ui/Button';
 import Spinner from '../../components/ui/Spinner';
 import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
-import { FileText, Eye, X, Calendar, User, Building2, Clock, Download } from 'lucide-react';
-import SubmissionStatusTracker from '../../components/analytics/SubmissionStatusTracker';
+import { exportToPdf, exportToJpg } from '../../utils/exportUtils';
+import { Download, Clock, FileText, Calendar, Eye, X, User, Building2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import SubmissionStatusTracker from '../../components/analytics/SubmissionStatusTracker';
 
 const Reports = () => {
   const [reports, setReports] = useState([]);
@@ -109,7 +110,7 @@ const Reports = () => {
     }
   };
 
-  const handleExport = () => {
+  const handleExportExcel = () => {
     const headers = ['Employee', 'Business', 'Timing', 'Activity', 'Date'];
     const rows = filteredReports.map((report) => [
       report.employee_name,
@@ -125,6 +126,24 @@ const Reports = () => {
     XLSX.writeFile(wb, 'employee-performance-reports.xlsx');
   };
 
+  const handleExportPdf = () => {
+    exportToPdf(
+      'Employee Performance Reports',
+      'Daily Performance Reports Summary',
+      'reports-table-container',
+      'employee-performance-reports.pdf'
+    );
+  };
+
+  const handleExportJpg = () => {
+    exportToJpg(
+      'Employee Performance Reports',
+      'Daily Performance Reports Summary',
+      'reports-table-container',
+      'employee-performance-reports.jpg'
+    );
+  };
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-1">
@@ -132,10 +151,20 @@ const Reports = () => {
           <h1 className="text-xl md:text-2xl font-black text-content-primary tracking-tight">Employee Performance Reports</h1>
           <p className="mt-1 text-xs text-content-secondary uppercase tracking-[0.15em] font-bold">Review and export daily performance reports submitted by employees.</p>
         </div>
-        <Button variant="secondary" onClick={handleExport} disabled={reports.length === 0} className="h-9 text-[11px] font-black uppercase tracking-wider">
-          <Download className="mr-2 h-4 w-4" />
-          Export Reports
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={handleExportExcel} disabled={reports.length === 0} className="h-9 text-[11px] font-black uppercase tracking-wider px-3">
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Excel
+          </Button>
+          <Button variant="secondary" onClick={handleExportPdf} disabled={reports.length === 0} className="h-9 text-[11px] font-black uppercase tracking-wider px-3">
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            PDF
+          </Button>
+          <Button variant="secondary" onClick={handleExportJpg} disabled={reports.length === 0} className="h-9 text-[11px] font-black uppercase tracking-wider px-3">
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            JPG
+          </Button>
+        </div>
       </div>
 
       {/* Filters Bar */}
@@ -236,7 +265,7 @@ const Reports = () => {
       )}
 
       {/* Reports List */}
-      <div className="card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md">
+      <div id="reports-table-container" className="overflow-x-auto card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md">
         {loading ? (
           <div className="flex h-64 items-center justify-center">
             <Spinner size="lg" />

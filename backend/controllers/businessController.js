@@ -98,12 +98,35 @@ const deleteBusiness = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// Timings
 const getTimings = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await query('SELECT * FROM business_timings WHERE business_id = $1 ORDER BY created_at ASC', [id]);
-    return successResponse(res, result.rows, 'Timings fetched');
+    let timings;
+    if (req.user && req.user.role === 'EMPLOYEE') {
+      const ebRes = await query(
+        'SELECT custom_timings_enabled FROM employee_businesses WHERE employee_id = $1 AND business_id = $2',
+        [req.user.id, id]
+      );
+      const customTimingsEnabled = ebRes.rows[0]?.custom_timings_enabled || false;
+
+      if (customTimingsEnabled) {
+        const result = await query(
+          `SELECT bt.* FROM business_timings bt
+           JOIN employee_custom_timings ect ON bt.id = ect.timing_id
+           WHERE ect.employee_id = $1 AND ect.business_id = $2
+           ORDER BY bt.created_at ASC`,
+          [req.user.id, id]
+        );
+        timings = result.rows;
+      } else {
+        const result = await query('SELECT * FROM business_timings WHERE business_id = $1 ORDER BY created_at ASC', [id]);
+        timings = result.rows;
+      }
+    } else {
+      const result = await query('SELECT * FROM business_timings WHERE business_id = $1 ORDER BY created_at ASC', [id]);
+      timings = result.rows;
+    }
+    return successResponse(res, timings, 'Timings fetched');
   } catch (err) { next(err); }
 };
 

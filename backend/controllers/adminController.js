@@ -119,7 +119,7 @@ const getEmployeeBusinesses = async (req, res, next) => {
   try {
     const { id } = req.params;
     const sql = `
-      SELECT b.* FROM businesses b
+      SELECT b.*, eb.custom_timings_enabled FROM businesses b
       JOIN employee_businesses eb ON b.id = eb.business_id
       WHERE eb.employee_id = $1
     `;
@@ -127,9 +127,31 @@ const getEmployeeBusinesses = async (req, res, next) => {
 
     // Fetch timings and activity types for each business
     const businesses = await Promise.all(result.rows.map(async (b) => {
-      const timings = await query('SELECT * FROM business_timings WHERE business_id = $1 ORDER BY timing_name ASC', [b.id]);
+      const customTimingsEnabled = b.custom_timings_enabled || false;
+
+      // Fetch all timings of the business
+      const allTimings = await query('SELECT * FROM business_timings WHERE business_id = $1 ORDER BY created_at ASC', [b.id]);
+
+      // Fetch assigned timings for this employee-business
+      const assignedTimingsRes = await query(
+        'SELECT timing_id FROM employee_custom_timings WHERE employee_id = $1 AND business_id = $2',
+        [id, b.id]
+      );
+      const assignedTimingIds = new Set(assignedTimingsRes.rows.map(r => r.timing_id));
+
+      // Map timings to include assigned status
+      const timings = allTimings.rows.map(t => ({
+        ...t,
+        assigned: customTimingsEnabled ? assignedTimingIds.has(t.id) : true
+      }));
+
       const activities = await query('SELECT * FROM activity_types WHERE business_id = $1', [b.id]);
-      return { ...b, timings: timings.rows, activityTypes: activities.rows };
+      return { 
+        ...b, 
+        customTimingsEnabled,
+        timings, 
+        activityTypes: activities.rows 
+      };
     }));
 
     return successResponse(res, businesses, 'Assigned businesses fetched');
@@ -137,6 +159,44 @@ const getEmployeeBusinesses = async (req, res, next) => {
     next(err);
   }
 };
+
+const updateEmployeeTimings = async (req, res, next) => {
+  try {
+    const { employeeId, businessId } = req.params;
+    const { customTimingsEnabled, timingIds } = req.body;
+
+    // 1. Update custom_timings_enabled in employee_businesses
+    const updateRes = await query(
+      'UPDATE employee_businesses SET custom_timings_enabled = $1 WHERE employee_id = $2 AND business_id = $3 RETURNING *',
+      [customTimingsEnabled, employeeId, businessId]
+    );
+
+    if (updateRes.rows.length === 0) {
+      return errorResponse(res, 'Employee business assignment not found', 404);
+    }
+
+    // 2. Delete existing custom timings
+    await query(
+      'DELETE FROM employee_custom_timings WHERE employee_id = $1 AND business_id = $2',
+      [employeeId, businessId]
+    );
+
+    // 3. If enabled, insert new custom timings
+    if (customTimingsEnabled && Array.isArray(timingIds) && timingIds.length > 0) {
+      for (const timingId of timingIds) {
+        await query(
+          'INSERT INTO employee_custom_timings (employee_id, business_id, timing_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+          [employeeId, businessId, timingId]
+        );
+      }
+    }
+
+    return successResponse(res, null, 'Employee timings updated successfully');
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 const getBusinessEmployees = async (req, res, next) => {
   try {
@@ -190,5 +250,6 @@ module.exports = {
   unassignBusiness,
   getEmployeeBusinesses,
   getBusinessEmployees,
-  updateUserLocation
+  updateUserLocation,
+  updateEmployeeTimings
 };
