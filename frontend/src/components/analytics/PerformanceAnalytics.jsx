@@ -583,7 +583,10 @@ const PerformanceAnalytics = ({
 
                       return (
                         <Tr key={`${row.employee_id}-${row.business_id}`} className="hover:bg-brand-primary/[0.03] transition-colors">
-                          <Td><p className="font-bold text-content-primary text-xs">{row.employee_name}</p></Td>
+                          <Td>
+                            <p className="font-bold text-content-primary text-xs">{row.employee_name}</p>
+                            {row.employee_email && <p className="text-[9px] text-content-muted">{row.employee_email}</p>}
+                          </Td>
                           <Td><p className="text-xs text-content-secondary">{row.business_name}</p></Td>
                           <Td className="text-center font-mono text-xs">{dialled}</Td>
                           <Td className="text-center font-mono text-xs">{answered}</Td>
@@ -613,7 +616,10 @@ const PerformanceAnalytics = ({
 
                       return (
                         <Tr key={`${row.employee_id}-${row.business_id}`} className="hover:bg-brand-primary/[0.03] transition-colors">
-                          <Td><p className="font-bold text-content-primary text-xs">{row.employee_name}</p></Td>
+                          <Td>
+                            <p className="font-bold text-content-primary text-xs">{row.employee_name}</p>
+                            {row.employee_email && <p className="text-[9px] text-content-muted">{row.employee_email}</p>}
+                          </Td>
                           <Td><p className="text-xs text-content-secondary">{row.business_name}</p></Td>
                           <Td className="text-center font-mono text-xs">{visits}</Td>
                           <Td className="text-center font-mono text-xs">{conversions}</Td>
@@ -726,6 +732,7 @@ const PerformanceAnalytics = ({
                     </Td>
                     <Td>
                       <p className="font-bold text-content-primary text-xs">{row.employee_name}</p>
+                      {row.employee_email && <p className="text-[9px] text-content-muted lowercase">{row.employee_email}</p>}
                       <p className="text-[9px] text-content-muted uppercase tracking-tight truncate max-w-[120px]">{row.business_name}</p>
                     </Td>
                     <Td className="text-center"><span className="font-black text-brand-primary text-xs">{row.numeric_total}</span></Td>

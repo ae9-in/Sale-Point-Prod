@@ -341,8 +341,13 @@ const SubmissionStatusTracker = ({ businessId, locationId }) => {
                   <Tr key={`${row.employeeId}-${row.date}`} className="hover:bg-brand-primary/[0.02] transition-colors border-b border-dark-border/40 last:border-b-0">
                     <Td className="font-bold text-content-primary text-xs sticky left-0 bg-dark-surface z-10 border-r border-dark-border/40">
                       <div className="flex flex-col gap-0.5">
-                        <span>{row.employeeName}</span>
-                        <span className="text-[10px] text-content-muted font-medium">
+                        <span className="truncate max-w-[140px]" title={row.employeeName}>{row.employeeName}</span>
+                        {row.employeeEmail && (
+                          <span className="text-[9px] text-content-muted font-normal truncate max-w-[140px]" title={row.employeeEmail}>
+                            {row.employeeEmail}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-content-muted font-medium mt-0.5">
                           ({row.submittedSlots}/{row.totalSlots} Submitted)
                         </span>
                       </div>

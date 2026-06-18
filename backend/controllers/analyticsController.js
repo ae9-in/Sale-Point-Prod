@@ -84,7 +84,7 @@ const getLeaderboard = async (req, res, next) => {
   try {
     const { locationId } = req.query;
     let sql = `
-      SELECT u.id, u.name, SUM(CASE WHEN ff.field_name ILIKE '%positive leads%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::integer ELSE 0 END) as score
+      SELECT u.id, u.name, u.email AS employee_email, SUM(CASE WHEN ff.field_name ILIKE '%positive leads%' AND ra.value ~ '^[0-9]+(\\.[0-9]+)?$' THEN ra.value::integer ELSE 0 END) as score
       FROM users u
       JOIN employee_reports er ON u.id = er.employee_id
       JOIN report_answers ra ON er.id = ra.report_id
@@ -97,7 +97,7 @@ const getLeaderboard = async (req, res, next) => {
       params.push(locationId);
     }
     sql += `
-      GROUP BY u.id, u.name
+      GROUP BY u.id, u.name, u.email
       ORDER BY score DESC
       LIMIT 10
     `;
@@ -175,6 +175,7 @@ const getPerformance = async (req, res, next) => {
       SELECT
         u.id AS employee_id,
         u.name AS employee_name,
+        u.email AS employee_email,
         b.id AS business_id,
         b.business_name,
         COUNT(DISTINCT er.id)::int AS report_count,
@@ -192,7 +193,7 @@ const getPerformance = async (req, res, next) => {
       LEFT JOIN report_answers ra ON er.id = ra.report_id
       LEFT JOIN form_fields ff ON ra.field_id = ff.id
       ${where}
-      GROUP BY u.id, u.name, b.id, b.business_name
+      GROUP BY u.id, u.name, u.email, b.id, b.business_name
       ORDER BY ${sortColumn} ${direction}
     `;
 
@@ -203,6 +204,7 @@ const getPerformance = async (req, res, next) => {
         er.created_at,
         u.id AS employee_id,
         u.name AS employee_name,
+        u.email AS employee_email,
         b.id AS business_id,
         b.business_name,
         bt.timing_name,
@@ -231,7 +233,7 @@ const getPerformance = async (req, res, next) => {
       LEFT JOIN report_answers ra ON er.id = ra.report_id
       LEFT JOIN form_fields ff ON ra.field_id = ff.id
       ${where}
-      GROUP BY er.id, u.id, u.name, b.id, b.business_name, bt.timing_name, at.name
+      GROUP BY er.id, u.id, u.name, u.email, b.id, b.business_name, bt.timing_name, at.name
       ORDER BY er.report_date DESC, er.created_at DESC
     `;
 
@@ -406,7 +408,11 @@ const getSubmissionStatus = async (req, res, next) => {
 
           const { hours, minutes } = parseTimingString(t.timing_name);
           const [yr, mo, dy] = dStr.split('-').map(Number);
-          const dueTime = new Date(yr, mo - 1, dy, hours, minutes, 0, 0);
+          
+          // Construct due time in IST (+05:30)
+          const pad = (n) => n.toString().padStart(2, '0');
+          const isoString = `${yr}-${pad(mo)}-${pad(dy)}T${pad(hours)}:${pad(minutes)}:00+05:30`;
+          const dueTime = new Date(isoString);
 
           if (submission) {
             submittedAt = submission.created_at; // Date object
@@ -437,6 +443,7 @@ const getSubmissionStatus = async (req, res, next) => {
         matrix.push({
           employeeId: emp.id,
           employeeName: emp.name,
+          employeeEmail: emp.email,
           date: dStr,
           submittedSlots,
           totalSlots,
