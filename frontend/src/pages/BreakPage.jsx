@@ -1,20 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useBreakState, useBreakDispatch } from '../context/BreakContext';
 import { useAuthStore } from '../store/authStore';
 import { BREAK_SLOTS } from '../constants/breakConfig';
 import { useBreakTimer } from '../hooks/useBreakTimer';
 import BreakSlotCard from '../components/break/BreakSlotCard';
 import BreakHistoryLog from '../components/break/BreakHistoryLog';
-import EmergencyBreakModal from '../components/break/EmergencyBreakModal';
 import * as breakApi from '../api/breakApi';
-import { ShieldAlert, AlertCircle, Coffee, Clock } from 'lucide-react';
+import { AlertCircle, Coffee, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const BreakPage = () => {
   const state = useBreakState();
   const { dispatch, refreshFromDb } = useBreakDispatch();
   const { user } = useAuthStore();
-  const [modalOpen, setModalOpen] = useState(false);
 
   const { 
     activeBreak, 
@@ -80,16 +78,6 @@ const BreakPage = () => {
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to end break');
     }
-  };
-
-  const handleStartEmergency = (slot) => {
-    dispatch({ 
-      type: 'START_BREAK', 
-      payload: { 
-        activeBreak: slot, 
-        startedAt: Date.now() 
-      } 
-    });
   };
 
   const handleResumeConfirm = () => {
@@ -191,45 +179,8 @@ const BreakPage = () => {
         })}
       </div>
 
-      {/* Emergency Break Request Banner */}
-      <div className="card border-brand-danger/25 bg-brand-danger/5 flex flex-col md:flex-row justify-between items-start md:items-center p-5 gap-4">
-        <div>
-          <h3 className="text-[14px] font-semibold text-content-primary flex items-center gap-2">
-            <ShieldAlert className="w-4 h-4 text-brand-danger" /> Unscheduled Emergency Break
-          </h3>
-          <p className="text-[11px] text-content-secondary mt-1 max-w-xl">
-            Need an unscheduled break? Emergency breaks start immediately. Please click the button to state the reason and begin.
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            if (activeBreak) {
-              toast.error('A break is already in progress');
-              return;
-            }
-            setModalOpen(true);
-          }}
-          disabled={!!activeBreak}
-          className={`w-full md:w-auto font-semibold text-sm py-2 px-5 rounded-lg transition-all duration-200 shrink-0 ${
-            activeBreak
-              ? 'bg-dark-surface/50 border border-dark-border text-content-muted cursor-not-allowed'
-              : 'bg-brand-danger hover:bg-brand-danger/90 text-white shadow-lg shadow-brand-danger/10'
-          }`}
-        >
-          Start Emergency Break
-        </button>
-      </div>
-
       {/* Break History Log Table */}
       <BreakHistoryLog history={breakHistory} />
-
-      {/* Emergency Break Modal Popup */}
-      <EmergencyBreakModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        refreshFromDb={refreshFromDb}
-        dispatch={dispatch}
-      />
     </div>
   );
 };

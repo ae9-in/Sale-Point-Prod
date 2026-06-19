@@ -154,10 +154,10 @@ export const BreakProvider = ({ children }) => {
         const elapsed = Math.max(0, Math.floor((Date.now() - dbStartedAt) / 1000));
 
         let slotConfig = {
-          id: activeData.break_type === 'Emergency Break' ? 'emergency' : activeData.break_type.toLowerCase().split(' ')[0],
+          id: activeData.break_type.toLowerCase().split(' ')[0],
           label: activeData.break_type,
-          durationMinutes: activeData.break_type === 'Morning Break' || activeData.break_type === 'Evening Break' ? 15 : activeData.break_type === 'Afternoon Break' ? 45 : 0,
-          color: activeData.break_type === 'Morning Break' ? 'amber' : activeData.break_type === 'Afternoon Break' ? 'blue' : activeData.break_type === 'Evening Break' ? 'purple' : 'red',
+          durationMinutes: activeData.break_type === 'Morning Break' || activeData.break_type === 'Evening Break' ? 15 : activeData.break_type === 'Afternoon Break' ? 60 : 0,
+          color: activeData.break_type === 'Morning Break' ? 'amber' : activeData.break_type === 'Afternoon Break' ? 'blue' : activeData.break_type === 'Evening Break' ? 'purple' : 'blue',
           icon: activeData.break_type === 'Morning Break' ? 'sunrise' : activeData.break_type === 'Afternoon Break' ? 'sun' : activeData.break_type === 'Evening Break' ? 'moon' : 'coffee'
         };
 

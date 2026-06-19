@@ -196,9 +196,9 @@ const AdminBreakDashboard = () => {
             </div>
             <ul className="space-y-2 text-[11px] text-content-secondary list-disc pl-4 leading-relaxed">
               <li>Morning & Evening breaks are capped at <strong>15 minutes</strong>.</li>
-              <li>Afternoon lunch breaks are capped at <strong>45 minutes</strong>.</li>
+              <li>Afternoon lunch breaks are capped at <strong>60 minutes</strong>.</li>
               <li>System automatically records overages and alerts admins via email.</li>
-              <li>All breaks, including emergency breaks, are logged directly for shift audits.</li>
+              <li>All breaks are logged directly for shift audits.</li>
             </ul>
           </div>
           <div className="mt-6 pt-4 border-t border-dark-border/40 bg-dark-bg/20 p-2.5 rounded-lg text-center text-[10px] text-content-muted">

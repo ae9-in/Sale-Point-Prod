@@ -44,6 +44,16 @@ const BreakSlotCard = ({
 
   const theme = themeColors[slot.color] || themeColors.blue;
 
+  const now = new Date();
+  const currentHours = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+  const startTotalMinutes = slot.startHour * 60 + slot.startMinute;
+  const endTotalMinutes = slot.endHour * 60 + slot.endMinute;
+
+  const isWithinWindow = currentTotalMinutes >= startTotalMinutes && currentTotalMinutes <= endTotalMinutes;
+
   // Determine container classes
   let containerClasses = 'card flex flex-col justify-between min-h-[260px] w-full transition-all duration-300 ';
   if (isActive) {
@@ -52,6 +62,8 @@ const BreakSlotCard = ({
     containerClasses += 'border-brand-success/20 bg-brand-success/5 opacity-90';
   } else if (isLocked) {
     containerClasses += 'border-dark-border opacity-50';
+  } else if (!isWithinWindow) {
+    containerClasses += 'border-dark-border/40 bg-dark-surface/10 opacity-75';
   } else {
     containerClasses += `${theme.border} hover:border-dark-border hover:shadow-md`;
   }
@@ -103,6 +115,14 @@ const BreakSlotCard = ({
             <Lock className="w-6 h-6 mb-2" />
             <span className="text-[11px] font-medium">Unavailable</span>
           </div>
+        ) : !isWithinWindow ? (
+          <div className="flex flex-col items-center justify-center py-2 text-center text-content-muted">
+            <Lock className="w-6 h-6 mb-2 text-brand-warning/60 animate-pulse" />
+            <span className="text-[12px] font-medium text-content-secondary">Time Locked</span>
+            <span className="text-[10px] text-content-muted mt-0.5">
+              Available: {slot.scheduledTime}
+            </span>
+          </div>
         ) : (
           <div className="py-2">
             <div className="text-[20px] font-bold text-content-primary font-mono">
@@ -139,6 +159,14 @@ const BreakSlotCard = ({
             className="w-full bg-dark-surface/50 border border-dark-border text-content-muted cursor-not-allowed font-medium py-2 px-4 rounded-lg text-sm"
           >
             Start Break
+          </button>
+        ) : !isWithinWindow ? (
+          <button
+            disabled
+            title={`Available only between ${slot.scheduledTime}`}
+            className="w-full bg-dark-surface/30 border border-dark-border text-content-muted cursor-not-allowed font-medium py-2 px-4 rounded-lg text-sm"
+          >
+            Start Break (Locked)
           </button>
         ) : (
           <button
