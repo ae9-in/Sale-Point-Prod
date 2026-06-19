@@ -1,15 +1,18 @@
 import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useUiStore } from '../../store/uiStore';
+import { useBreakState } from '../../context/BreakContext';
 import { cn } from '../../utils/cn';
 import { 
   LayoutDashboard, Users, Building2, Target, 
-  FileText, LogOut, UserCircle
+  FileText, LogOut, UserCircle, Coffee
 } from 'lucide-react';
 
 const Sidebar = () => {
   const { user, logout } = useAuthStore();
   const { sidebarOpen, toggleSidebar } = useUiStore();
+  const breakState = useBreakState();
+  const activeBreak = breakState?.activeBreak;
   const isAdmin = user?.role === 'SUPER_ADMIN';
 
   const handleLogout = () => {
@@ -23,6 +26,7 @@ const Sidebar = () => {
     { name: 'Businesses', path: '/admin/businesses', icon: Building2 },
     { name: 'Targets', path: '/admin/targets', icon: Target },
     { name: 'Reports', path: '/admin/reports', icon: FileText },
+    { name: 'Break Dashboard', path: '/admin/breaks', icon: Coffee },
     { name: 'Profile Settings', path: '/admin/profile', icon: UserCircle },
   ];
 
@@ -32,6 +36,7 @@ const Sidebar = () => {
     { name: 'My Targets', path: '/employee/targets', icon: Target },
     { name: 'Submit Report', path: '/employee/submit-report', icon: FileText },
     { name: 'My Reports', path: '/employee/reports', icon: FileText },
+    { name: 'Break', path: '/break', icon: Coffee },
     { name: 'My Profile', path: '/employee/profile', icon: UserCircle },
   ];
 
@@ -68,7 +73,7 @@ const Sidebar = () => {
             to={link.path}
             onClick={() => { if(window.innerWidth < 1024) toggleSidebar() }}
             className={({ isActive }) => cn(
-              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-content-secondary transition-all group",
+              "flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-content-secondary transition-all group relative",
               isActive ? "bg-brand-primary/10 text-brand-primary relative" : "hover:bg-dark-surface hover:text-content-primary"
             )}
           >
@@ -76,11 +81,19 @@ const Sidebar = () => {
               <>
                 <link.icon className={cn("w-4.5 h-4.5", isActive ? "text-brand-primary" : "text-content-muted group-hover:text-content-primary")} />
                 <span className={cn(
-                  "font-medium whitespace-nowrap transition-all duration-300",
+                  "font-medium whitespace-nowrap transition-all duration-300 flex-1",
                   !sidebarOpen && "lg:opacity-0 lg:invisible"
                 )}>
                   {link.name}
                 </span>
+
+                {/* Pulsing indicator for active breaks */}
+                {link.path === '/break' && activeBreak && (
+                  <span className={cn(
+                    "w-2 h-2 rounded-full bg-brand-warning animate-pulse shrink-0",
+                    !sidebarOpen && "lg:absolute lg:top-2 lg:right-2"
+                  )} aria-label="Break in progress" />
+                )}
               </>
             )}
           </NavLink>

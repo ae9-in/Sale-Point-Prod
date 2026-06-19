@@ -20,6 +20,7 @@ const AdminTargets = lazy(() => import('../pages/admin/Targets'));
 const AdminReports = lazy(() => import('../pages/admin/Reports'));
 const AdminAnalytics = lazy(() => import('../pages/admin/Analytics'));
 const AdminProfile = lazy(() => import('../pages/admin/Profile'));
+const AdminBreakDashboard = lazy(() => import('../pages/admin/AdminBreakDashboard'));
 
 // Employee Pages
 const EmployeeDashboard = lazy(() => import('../pages/employee/Dashboard'));
@@ -28,6 +29,7 @@ const EmployeeTargets = lazy(() => import('../pages/employee/Targets'));
 const EmployeeSubmitReport = lazy(() => import('../pages/employee/SubmitReport'));
 const EmployeeReports = lazy(() => import('../pages/employee/Reports'));
 const EmployeeProfile = lazy(() => import('../pages/employee/Profile'));
+const BreakPage = lazy(() => import('../pages/BreakPage'));
 import { useAuthStore } from '../store/authStore';
 
 const PageLoader = () => (
@@ -119,6 +121,7 @@ const AppRouter = () => {
             <Route path="/employee/submit-report" element={<EmployeeSubmitReport />} />
             <Route path="/employee/reports" element={<EmployeeReports />} />
             <Route path="/employee/profile" element={<EmployeeProfile />} />
+            <Route path="/break" element={<BreakPage />} />
           </Route>
           
           {/* Admin Routes */}
@@ -133,6 +136,7 @@ const AppRouter = () => {
               <Route path="/admin/reports" element={<AdminReports />} />
               <Route path="/admin/analytics" element={<AdminAnalytics />} />
               <Route path="/admin/profile" element={<AdminProfile />} />
+              <Route path="/admin/breaks" element={<AdminBreakDashboard />} />
             </Route>
           </Route>
         </Route>
