@@ -112,7 +112,14 @@ const getTargetSummary = async (req, res, next) => {
         WHERE er.employee_id = $1 AND er.business_id = $2
         AND er.report_date >= $3 AND er.report_date <= $4
         AND ff.field_type = 'number'
-        AND ff.field_name = $5
+        AND (
+          ($5 = 'Calls Made' AND (ff.field_name ILIKE '%dialled%' OR ff.field_name ILIKE '%calls made%')) OR
+          ($5 = 'Answered Calls' AND ff.field_name ILIKE '%answered%') OR
+          ($5 = 'Positive Leads' AND ff.field_name ILIKE '%positive leads%') OR
+          ($5 = 'Conversions' AND ff.field_name ILIKE '%conversions%') OR
+          ($5 = 'Visits Made' AND (ff.field_name ILIKE '%visits made%' OR ff.field_name ILIKE '%field visits%')) OR
+          (ff.field_name ILIKE '%' || REPLACE($5, ' ', '%') || '%')
+        )
         AND ra.value ~ '^[0-9]+$'
       `;
       const progRes = await query(sql, [id, t.business_id, t.start_date, t.end_date, t.target_name]);
@@ -164,10 +171,17 @@ const getBulkTargets = async (req, res, next) => {
         WHERE er.employee_id = $1 AND er.business_id = $2
         AND er.report_date >= $3 AND er.report_date <= $4
         AND ff.field_type = 'number'
+        AND (
+          ($5 = 'Calls Made' AND (ff.field_name ILIKE '%dialled%' OR ff.field_name ILIKE '%calls made%')) OR
+          ($5 = 'Answered Calls' AND ff.field_name ILIKE '%answered%') OR
+          ($5 = 'Positive Leads' AND ff.field_name ILIKE '%positive leads%') OR
+          ($5 = 'Conversions' AND ff.field_name ILIKE '%conversions%') OR
+          ($5 = 'Visits Made' AND (ff.field_name ILIKE '%visits made%' OR ff.field_name ILIKE '%field visits%')) OR
+          (ff.field_name ILIKE '%' || REPLACE($5, ' ', '%') || '%')
+        )
         AND ra.value ~ '^[0-9]+$'
-        AND ff.field_name ILIKE $5
       `;
-      const progRes = await query(progSql, [t.employee_id, businessId, t.start_date, t.end_date, `%${t.target_name}%`]);
+      const progRes = await query(progSql, [t.employee_id, businessId, t.start_date, t.end_date, t.target_name]);
       t.progress = parseInt(progRes.rows[0]?.progress || 0, 10);
     }
 
