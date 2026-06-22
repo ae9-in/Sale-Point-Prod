@@ -58,7 +58,14 @@ const getTargetsProgress = async (req, res, next) => {
                AND er.report_date >= t.start_date 
                AND er.report_date <= t.end_date
                AND ff.field_type = 'number'
-               AND ff.field_name = t.target_name
+               AND (
+                 (t.target_name = 'Calls Made' AND (ff.field_name ILIKE '%dialled%' OR ff.field_name ILIKE '%calls made%')) OR
+                 (t.target_name = 'Answered Calls' AND ff.field_name ILIKE '%answered%') OR
+                 (t.target_name = 'Positive Leads' AND ff.field_name ILIKE '%positive leads%') OR
+                 (t.target_name = 'Conversions' AND ff.field_name ILIKE '%conversions%') OR
+                 (t.target_name = 'Visits Made' AND (ff.field_name ILIKE '%visits made%' OR ff.field_name ILIKE '%field visits%')) OR
+                 (ff.field_name ILIKE '%' || REPLACE(t.target_name, ' ', '%') || '%')
+               )
                AND ra.value ~ '^[0-9]+$'
             ), 0
           ) as progress

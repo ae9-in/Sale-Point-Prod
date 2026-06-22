@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from '../../api/axiosInstance';
 import PerformanceAnalytics from '../../components/analytics/PerformanceAnalytics';
-import TargetAnalyticsModal from '../../components/analytics/TargetAnalyticsModal';
+import TargetAnalyticsView from '../../components/analytics/TargetAnalyticsView';
 import Spinner from '../../components/ui/Spinner';
 import Button from '../../components/ui/Button';
 import { Building2, Users, Target } from 'lucide-react';
@@ -11,7 +11,7 @@ const Dashboard = () => {
   const [employees, setEmployees] = useState([]);
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('performance'); // 'performance', 'targets'
 
   useEffect(() => {
     const fetchData = async () => {
@@ -48,26 +48,41 @@ const Dashboard = () => {
             Real-time Market & Team Intelligence
           </p>
         </div>
-        <Button onClick={() => setIsTargetModalOpen(true)} className="flex items-center gap-2 shadow-lg">
-          <Target size={18} />
-          View Target Progress
-        </Button>
+        <div className="flex bg-dark-bg border border-dark-border/60 rounded-xl p-1 shadow-inner">
+          <button
+            onClick={() => setActiveTab('performance')}
+            className={cn(
+              "px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all",
+              activeTab === 'performance' ? "bg-brand-primary text-white shadow-md" : "text-content-secondary hover:text-content-primary"
+            )}
+          >
+            Global Performance
+          </button>
+          <button
+            onClick={() => setActiveTab('targets')}
+            className={cn(
+              "px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5",
+              activeTab === 'targets' ? "bg-brand-primary text-white shadow-md" : "text-content-secondary hover:text-content-primary"
+            )}
+          >
+            <Target size={14} />
+            Target Progress
+          </button>
+        </div>
       </div>
 
-      <TargetAnalyticsModal 
-        isOpen={isTargetModalOpen} 
-        onClose={() => setIsTargetModalOpen(false)} 
-        businesses={businesses} 
-      />
-
-      <PerformanceAnalytics
-        title="Global Performance Intelligence"
-        summaryLabel="Consolidated Performance Ledger"
-        employees={employees}
-        businesses={businesses}
-        lockEmployee={false}
-        lockBusiness={false}
-      />
+      {activeTab === 'performance' ? (
+        <PerformanceAnalytics
+          title="Global Performance Intelligence"
+          summaryLabel="Consolidated Performance Ledger"
+          employees={employees}
+          businesses={businesses}
+          lockEmployee={false}
+          lockBusiness={false}
+        />
+      ) : (
+        <TargetAnalyticsView businesses={businesses} />
+      )}
     </div>
   );
 };

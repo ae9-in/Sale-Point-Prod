@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import axios from '../../api/axiosInstance';
 import Spinner from '../ui/Spinner';
 import Button from '../ui/Button';
-import { Target, X, CheckCircle2, TrendingUp, Building2, Calendar, Filter, Download } from 'lucide-react';
+import { Target, CheckCircle2, TrendingUp, Building2, Calendar, Filter, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const currentYear = new Date().getFullYear();
@@ -31,7 +31,7 @@ const buildParams = (filters) => {
   return params;
 };
 
-const TargetAnalyticsModal = ({ isOpen, onClose, businesses = [] }) => {
+const TargetAnalyticsView = ({ businesses = [] }) => {
   const [filters, setFilters] = useState({
     businessId: '',
     period: 'month',
@@ -47,9 +47,9 @@ const TargetAnalyticsModal = ({ isOpen, onClose, businesses = [] }) => {
   const [loading, setLoading] = useState(false);
   const [activityType, setActivityType] = useState('All');
   const [sortBy, setSortBy] = useState('name_asc');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    if (!isOpen) return;
     
     const fetchTargets = async () => {
       try {
@@ -64,7 +64,7 @@ const TargetAnalyticsModal = ({ isOpen, onClose, businesses = [] }) => {
     };
 
     fetchTargets();
-  }, [filters, isOpen]);
+  }, [filters]);
 
   const groupedTargets = useMemo(() => {
     const map = new Map();
@@ -127,8 +127,16 @@ const TargetAnalyticsModal = ({ isOpen, onClose, businesses = [] }) => {
       return 0;
     });
 
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(g => 
+        g.employee_name.toLowerCase().includes(q) || 
+        g.employee_email.toLowerCase().includes(q)
+      );
+    }
+
     return result;
-  }, [targets, activityType, sortBy]);
+  }, [targets, activityType, sortBy, searchQuery]);
 
   const calculateAchievement = (target, progress) => {
     if (!target || target <= 0) return 0;
@@ -159,12 +167,12 @@ const TargetAnalyticsModal = ({ isOpen, onClose, businesses = [] }) => {
     XLSX.writeFile(wb, `Target_Analytics_${filters.period}.xlsx`);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-dark-bg/95 backdrop-blur-xl animate-fade-in">
-      {/* Header */}
-      <div className="flex-none p-6 border-b border-dark-border/60 flex items-center justify-between">
+    <div className="flex flex-col bg-transparent animate-fade-in space-y-6">
+      {/* Header & Filters Card */}
+      <div className="card bg-dark-surface/40 border-dark-border/40 p-0 shadow-md backdrop-blur-md overflow-hidden">
+        {/* Header */}
+        <div className="flex-none p-5 border-b border-dark-border/60 flex items-center justify-between bg-dark-surface">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-brand-primary/10 flex items-center justify-center border border-brand-primary/20">
             <Target className="w-6 h-6 text-brand-primary" />
@@ -178,17 +186,11 @@ const TargetAnalyticsModal = ({ isOpen, onClose, businesses = [] }) => {
           <Button variant="secondary" onClick={handleExport} className="flex items-center gap-2">
             <Download size={16} /> Export Excel
           </Button>
-          <button 
-            onClick={onClose}
-            className="p-3 bg-dark-surface/50 text-content-secondary hover:text-white rounded-xl hover:bg-dark-surface transition-colors"
-          >
-            <X size={20} />
-          </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex-none p-6 border-b border-dark-border/40 bg-dark-surface/20">
+        {/* Filters */}
+        <div className="flex-none p-5">
         <div className="flex flex-wrap gap-4 items-end">
         <div className="w-[160px] flex-none">
           <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Business Filter</label>
@@ -202,6 +204,17 @@ const TargetAnalyticsModal = ({ isOpen, onClose, businesses = [] }) => {
               <option key={b.id} value={b.id}>{b.business_name}</option>
             ))}
           </select>
+        </div>
+
+        <div className="w-[160px] flex-none flex flex-col gap-2">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted">Search Employee</label>
+          <input
+            type="text"
+            placeholder="Search by name..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-dark-bg border border-dark-border rounded-lg px-4 h-[38px] text-sm text-content-primary outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-all placeholder:text-content-muted/50"
+          />
         </div>
 
         <div className="w-[160px] flex-none flex flex-col gap-2">
@@ -320,10 +333,11 @@ const TargetAnalyticsModal = ({ isOpen, onClose, businesses = [] }) => {
           </>
         )}
         </div>
+        </div>
       </div>
 
       {/* Grid */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 min-h-[500px] overflow-auto p-6">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full gap-4">
             <Spinner size="lg" />
@@ -432,4 +446,4 @@ const TargetAnalyticsModal = ({ isOpen, onClose, businesses = [] }) => {
   );
 };
 
-export default TargetAnalyticsModal;
+export default TargetAnalyticsView;
