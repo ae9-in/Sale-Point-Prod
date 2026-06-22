@@ -95,7 +95,7 @@ const deleteTarget = async (req, res, next) => {
 
 const getTargetSummary = async (req, res, next) => {
   try {
-    const { id } = req.params; // employeeId
+    const { id } = req.params;
     if (req.user.role === 'EMPLOYEE' && req.user.id !== id) {
       return errorResponse(res, 'Forbidden', 403);
     }
@@ -122,4 +122,95 @@ const getTargetSummary = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getTargets, createTarget, createBusinessTarget, updateTarget, deleteTarget, getTargetSummary };
+/**
+ * GET /targets/business/:businessId?startDate=&endDate=
+ * Returns all employees for a business + their existing targets in that date range.
+ */
+const getBulkTargets = async (req, res, next) => {
+  try {
+    const { businessId } = req.params;
+    const { startDate, endDate } = req.query;
+
+    const employeesRes = await query(
+      `SELECT u.id, u.name, u.email 
+       FROM users u
+       JOIN employee_businesses eb ON u.id = eb.employee_id
+       WHERE eb.business_id = $1 AND u.status = 'APPROVED'
+       ORDER BY u.name ASC`,
+      [businessId]
+    );
+
+    let targetSql = `SELECT * FROM targets WHERE business_id = $1`;
+    const targetParams = [businessId];
+    if (startDate) {
+      targetSql += ` AND start_date = $${targetParams.length + 1}`;
+      targetParams.push(startDate);
+    }
+    if (endDate) {
+      targetSql += ` AND end_date = $${targetParams.length + 1}`;
+      targetParams.push(endDate);
+    }
+    targetSql += ` ORDER BY created_at ASC`;
+    const targetsRes = await query(targetSql, targetParams);
+    const targets = targetsRes.rows;
+
+    for (let t of targets) {
+      const progSql = `
+        SELECT SUM(CAST(ra.value AS INTEGER)) as progress
+        FROM report_answers ra
+        JOIN form_fields ff ON ra.field_id = ff.id
+        JOIN employee_reports er ON ra.report_id = er.id
+        WHERE er.employee_id = $1 AND er.business_id = $2
+        AND er.report_date >= $3 AND er.report_date <= $4
+        AND ff.field_type = 'number'
+        AND ra.value ~ '^[0-9]+$'
+        AND ff.field_name ILIKE $5
+      `;
+      const progRes = await query(progSql, [t.employee_id, businessId, t.start_date, t.end_date, `%${t.target_name}%`]);
+      t.progress = parseInt(progRes.rows[0]?.progress || 0, 10);
+    }
+
+    return successResponse(res, {
+      employees: employeesRes.rows,
+      targets
+    }, 'Bulk targets fetched');
+  } catch (err) { next(err); }
+};
+
+/**
+ * POST /targets/bulk
+ * Body: { entries: [{ employeeId, businessId, targetName, targetValue, startDate, endDate }] }
+ * Upserts all targets. Uses ON CONFLICT to update if already exists.
+ */
+const bulkUpsertTargets = async (req, res, next) => {
+  try {
+    const { entries } = req.body;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return errorResponse(res, 'No entries provided', 400);
+    }
+
+    const results = [];
+    for (const entry of entries) {
+      const { employeeId, businessId, targetName, targetValue, startDate, endDate } = entry;
+      if (!employeeId || !businessId || !targetName || targetValue === undefined || targetValue === null || targetValue === '' || !startDate || !endDate) {
+        continue;
+      }
+      const val = parseInt(targetValue, 10);
+      if (isNaN(val)) continue;
+
+      const result = await query(
+        `INSERT INTO targets (employee_id, business_id, target_name, target_value, start_date, end_date)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (employee_id, business_id, target_name, start_date, end_date)
+         DO UPDATE SET target_value = EXCLUDED.target_value
+         RETURNING *`,
+        [employeeId, businessId, targetName, val, startDate, endDate]
+      );
+      results.push(result.rows[0]);
+    }
+
+    return successResponse(res, results, 'Targets saved successfully', 201);
+  } catch (err) { next(err); }
+};
+
+module.exports = { getTargets, createTarget, createBusinessTarget, updateTarget, deleteTarget, getTargetSummary, getBulkTargets, bulkUpsertTargets };

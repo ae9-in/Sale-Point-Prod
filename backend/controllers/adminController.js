@@ -5,7 +5,7 @@ const { hashPassword } = require('../utils/hashPassword');
 const getUsers = async (req, res, next) => {
   try {
     const { status } = req.query;
-    let sql = 'SELECT u.id, u.name, u.email, u.phone, u.role, u.status, u.created_at, u.location_id, l.name as location_name FROM users u LEFT JOIN locations l ON u.location_id = l.id WHERE u.role = $1';
+    let sql = 'SELECT u.id, u.name, u.email, u.phone, u.role, u.status, u.created_at, u.location_id, u.shift_start, u.shift_end, l.name as location_name FROM users u LEFT JOIN locations l ON u.location_id = l.id WHERE u.role = $1';
     const params = ['EMPLOYEE'];
 
     if (status) {
@@ -239,6 +239,30 @@ const updateUserLocation = async (req, res, next) => {
   }
 };
 
+const updateUserWorkingHours = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { shiftStart, shiftEnd } = req.body;
+    
+    if (!shiftStart || !shiftEnd) {
+      return errorResponse(res, 'Shift start and end times are required', 400);
+    }
+
+    const result = await query(
+      'UPDATE users SET shift_start = $1, shift_end = $2 WHERE id = $3 RETURNING id, shift_start, shift_end',
+      [shiftStart, shiftEnd, id]
+    );
+
+    if (result.rows.length === 0) {
+      return errorResponse(res, 'User not found', 404);
+    }
+
+    return successResponse(res, result.rows[0], 'User working hours updated successfully');
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getUsers,
   approveUser,
@@ -251,5 +275,6 @@ module.exports = {
   getEmployeeBusinesses,
   getBusinessEmployees,
   updateUserLocation,
-  updateEmployeeTimings
+  updateEmployeeTimings,
+  updateUserWorkingHours
 };

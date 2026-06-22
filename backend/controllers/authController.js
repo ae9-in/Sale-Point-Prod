@@ -128,7 +128,7 @@ const logout = async (req, res, next) => {
 const me = async (req, res, next) => {
   try {
     const result = await query(
-      'SELECT u.id, u.name, u.email, u.phone, u.role, u.status, u.location_id, l.name as location_name FROM users u LEFT JOIN locations l ON u.location_id = l.id WHERE u.id = $1',
+      'SELECT u.id, u.name, u.email, u.phone, u.role, u.status, u.location_id, u.shift_start, u.shift_end, l.name as location_name FROM users u LEFT JOIN locations l ON u.location_id = l.id WHERE u.id = $1',
       [req.user.id]
     );
     if (result.rows.length === 0) return errorResponse(res, 'User not found', 404, 'NOT_FOUND');
@@ -169,7 +169,7 @@ const updateProfile = async (req, res, next) => {
 
     // Fetch updated user with location details
     const result = await query(
-      'SELECT u.id, u.name, u.email, u.phone, u.role, u.status, u.location_id, l.name as location_name FROM users u LEFT JOIN locations l ON u.location_id = l.id WHERE u.id = $1',
+      'SELECT u.id, u.name, u.email, u.phone, u.role, u.status, u.location_id, u.shift_start, u.shift_end, l.name as location_name FROM users u LEFT JOIN locations l ON u.location_id = l.id WHERE u.id = $1',
       [userId]
     );
     return successResponse(res, result.rows[0], 'Profile updated successfully');

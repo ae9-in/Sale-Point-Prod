@@ -1,384 +1,861 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from '../../api/axiosInstance';
-import { Table, Thead, Tbody, Tr, Th, Td } from '../../components/ui/Table';
 import Button from '../../components/ui/Button';
 import Spinner from '../../components/ui/Spinner';
-import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
-import { Target, Plus, Trash2, Calendar, Award, CheckCircle2 } from 'lucide-react';
+import {
+  Target, Save, Plus, Trash2, Building2, Users,
+  CheckCircle2, Search, Calendar, RefreshCw, Copy, Sparkles, Filter, Settings, History
+} from 'lucide-react';
+import DefaultTargetsManager from './DefaultTargetsManager';
+import TargetHistoryModal from '../../components/admin/TargetHistoryModal';
 
+// ─── Preset metric columns ───────────────────────────────────────────
+const PRESET_METRICS = ['Calls Made', 'Positive Leads', 'Conversions', 'Visits Made', 'Answered Calls'];
+
+// ─── Small inline progress bar ───────────────────────────────────────
+const MiniProgress = ({ progress, target }) => {
+  if (!target || target === 0) return null;
+  const pct = Math.min(Math.round((progress / target) * 100), 100);
+  const color = pct >= 100 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#6366f1';
+  return (
+    <div className="mt-1">
+      <div className="flex items-center justify-between text-[9px] text-content-muted mb-0.5">
+        <span>{progress}/{target}</span>
+        <span style={{ color }}>{pct}%</span>
+      </div>
+      <div className="h-1 w-full rounded-full bg-dark-border/60 overflow-hidden">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+};
+
+// ─── Excel cell ───────────────────────────────────────────────────────
+const Cell = ({ value, savedValue, progress, onChange, onDelete, disabled }) => {
+  const isDirty = String(value ?? '') !== String(savedValue ?? '');
+  const hasSaved = savedValue !== undefined && savedValue !== null && savedValue !== '';
+
+  return (
+    <div className={`relative flex flex-col p-2 border-r border-dark-border/40 min-w-[130px] transition-colors ${isDirty ? 'bg-amber-500/10' : ''}`}>
+      <div className="flex items-center gap-1.5 w-full">
+        {hasSaved && !isDirty && (
+          <CheckCircle2 size={10} className="text-brand-success shrink-0" />
+        )}
+        <input
+          type="number"
+          min="0"
+          disabled={disabled}
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="—"
+          className={`w-full h-8 px-2.5 bg-dark-bg/60 border border-dark-border/60 hover:border-dark-border/90 focus:border-brand-primary rounded-lg text-xs font-mono text-content-primary outline-none focus:ring-1 focus:ring-brand-primary transition-all text-center placeholder:text-content-muted/30 ${
+            isDirty ? 'font-bold border-amber-500/40' : ''
+          }`}
+        />
+        {hasSaved && (
+          <button
+            onClick={onDelete}
+            className="opacity-0 group-hover:opacity-100 text-content-muted hover:text-brand-danger transition-all p-1 bg-dark-bg border border-dark-border rounded-md shrink-0"
+            title="Clear target"
+          >
+            <Trash2 size={10} />
+          </button>
+        )}
+      </div>
+      {hasSaved && !isDirty && (
+        <div className="px-1">
+          <MiniProgress progress={progress || 0} target={Number(savedValue)} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────
 const Targets = () => {
-  const [employees, setEmployees] = useState([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
-  const [assignedBusinesses, setAssignedBusinesses] = useState([]);
-  const [targets, setTargets] = useState([]);
-  const [loadingEmployees, setLoadingEmployees] = useState(true);
-  const [loadingTargets, setLoadingTargets] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
+  // --- States ---
+  const [businesses, setBusinesses] = useState([]);
+  const [selectedBusiness, setSelectedBusiness] = useState(null); // { id: 'all' | UUID, business_name: '...' }
+  const [loadingBiz, setLoadingBiz] = useState(true);
+  const [globalDefaultTargets, setGlobalDefaultTargets] = useState([]);
+  
+  // Tabs
+  const [activeTab, setActiveTab] = useState('daily'); // 'daily' or 'default'
+
+  // Filters
+  const [activityType, setActivityType] = useState('Callings'); // 'Callings' or 'Fields'
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [searchTerm, setSearchTerm] = useState('');
 
-  const [formData, setFormData] = useState({
-    businessId: '',
-    targetName: '',
-    targetValue: '',
-    startDate: '',
-    endDate: ''
-  });
+  // Grid Data
+  const [employees, setEmployees] = useState([]);
+  const [savedTargets, setSavedTargets] = useState([]);
+  const [gridData, setGridData] = useState({});
+  const [columns, setColumns] = useState([]);
+  const [selectedEmpIds, setSelectedEmpIds] = useState(new Set());
+  
+  // Custom metadata for 'All Businesses' mode
+  const [employeeBusinessesMap, setEmployeeBusinessesMap] = useState({}); // { [empId]: Array of business objects }
 
+  // Columns & custom column creation
+  const [newColName, setNewColName] = useState('');
+  const [addingCol, setAddingCol] = useState(false);
+  const [loadingGrid, setLoadingGrid] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Bulk Fill State
+  const [bulkFillMetric, setBulkFillMetric] = useState('');
+  const [bulkFillValue, setBulkFillValue] = useState('');
+
+  // History Modal State
+  const [historyEmployee, setHistoryEmployee] = useState(null);
+
+  // 1. Fetch businesses and default targets on mount
   useEffect(() => {
-    fetchEmployees();
+    fetchInitialData();
   }, []);
 
-  const fetchEmployees = async () => {
+  const fetchInitialData = async () => {
     try {
-      const res = await axios.get('/admin/users?status=APPROVED');
-      setEmployees(res.data.data);
+      setLoadingBiz(true);
+      const [bizRes, defTargetsRes] = await Promise.all([
+        axios.get('/businesses'),
+        axios.get('/default-targets')
+      ]);
+      const bizList = bizRes.data.data || [];
+      setBusinesses(bizList);
+      setGlobalDefaultTargets(defTargetsRes.data.data || []);
       
-      const filtered = res.data.data;
-      if (filtered.length > 0) {
-        setSelectedEmployeeId(filtered[0].id);
+      if (bizList.length > 0) {
+        setSelectedBusiness(bizList[0]); // pre-select first business
       }
-    } catch (err) {
-      toast.error('Failed to load employees');
+    } catch {
+      toast.error('Failed to load initial data');
     } finally {
-      setLoadingEmployees(false);
+      setLoadingBiz(false);
     }
   };
+
+  // Helper to re-fetch default targets if modified in the config tab
+  const reloadDefaultTargets = async () => {
+    try {
+      const res = await axios.get('/default-targets');
+      setGlobalDefaultTargets(res.data.data || []);
+    } catch {}
+  };
+
+  // 2. Set default columns when Activity Type changes
+  useEffect(() => {
+    if (activityType === 'Callings') {
+      setColumns(['Calls Made', 'Positive Leads', 'Conversions', 'Answered Calls']);
+      setBulkFillMetric('Calls Made');
+    } else {
+      setColumns(['Visits Made', 'Positive Leads', 'Conversions']);
+      setBulkFillMetric('Visits Made');
+    }
+  }, [activityType]);
+
+  // 3. Fetch targets & employees based on selected business
+  const fetchGridData = useCallback(async () => {
+    if (!selectedBusiness?.id || !startDate || !endDate) return;
+    
+    const isAll = selectedBusiness.id === 'all';
+
+    try {
+      setLoadingGrid(true);
+      
+      if (!isAll) {
+        // Specific Business
+        const res = await axios.get(`/targets/business/${selectedBusiness.id}`, {
+          params: { startDate, endDate }
+        });
+        const { employees: emps, targets } = res.data.data;
+        setEmployees(emps);
+        setSavedTargets(targets);
+
+        const grid = {};
+        for (const emp of emps) {
+          grid[emp.id] = {};
+          // Pre-fill with default targets
+          for (const dt of globalDefaultTargets) {
+            if (!dt.business_id || dt.business_id === selectedBusiness.id) {
+              grid[emp.id][dt.target_name] = String(dt.target_value);
+            }
+          }
+        }
+        // Override with saved targets
+        for (const t of targets) {
+          if (grid[t.employee_id] !== undefined) {
+            grid[t.employee_id][t.target_name] = String(t.target_value);
+          }
+        }
+        setGridData(grid);
+        setSelectedEmpIds(new Set(emps.map(e => e.id)));
+
+      } else {
+        // "All Businesses" view
+        // 1. Fetch all approved users
+        const usersRes = await axios.get('/admin/users?status=APPROVED');
+        const emps = usersRes.data.data || [];
+        setEmployees(emps);
+
+        // 2. Fetch businesses and target summaries in parallel for each employee
+        const detailsPromises = emps.map(async (emp) => {
+          try {
+            const bizRes = await axios.get(`/admin/employees/${emp.id}/businesses`);
+            const summaryRes = await axios.get(`/targets/employee/${emp.id}/summary`);
+            return {
+              empId: emp.id,
+              businesses: bizRes.data.data || [],
+              targets: summaryRes.data.data || []
+            };
+          } catch {
+            return { empId: emp.id, businesses: [], targets: [] };
+          }
+        });
+
+        const details = await Promise.all(detailsPromises);
+
+        // Build business mappings and collect matching targets
+        const bizMap = {};
+        const consolidatedSavedTargets = [];
+        const grid = {};
+
+        for (const d of details) {
+          bizMap[d.empId] = d.businesses;
+          grid[d.empId] = {};
+
+          // Pre-fill with default targets
+          for (const dt of globalDefaultTargets) {
+            const appliesToEmp = !dt.business_id || d.businesses.some(b => b.id === dt.business_id);
+            if (appliesToEmp) {
+              grid[d.empId][dt.target_name] = String(dt.target_value);
+            }
+          }
+
+          // Filter summary targets by selected start date & end date (string date comparison)
+          const matched = d.targets.filter(t => {
+            const sd = t.start_date ? t.start_date.slice(0, 10) : '';
+            const ed = t.end_date ? t.end_date.slice(0, 10) : '';
+            return sd === startDate && ed === endDate;
+          });
+
+          // Consolidate values for the grid (group by target name)
+          // If targets exist across multiple businesses, we sum progress, but show the target value
+          const tempTargets = {}; // { [target_name]: targetObject }
+          for (const t of matched) {
+            if (!tempTargets[t.target_name]) {
+              tempTargets[t.target_name] = { ...t, progress: 0 };
+            }
+            tempTargets[t.target_name].progress += Number(t.progress || 0);
+          }
+
+          const consolidatedList = Object.values(tempTargets);
+          consolidatedSavedTargets.push(...consolidatedList);
+
+          for (const t of consolidatedList) {
+            grid[d.empId][t.target_name] = String(t.target_value);
+          }
+        }
+
+        setEmployeeBusinessesMap(bizMap);
+        setSavedTargets(consolidatedSavedTargets);
+        setGridData(grid);
+        setSelectedEmpIds(new Set(emps.map(e => e.id)));
+      }
+    } catch {
+      toast.error('Failed to fetch targets grid data');
+    } finally {
+      setLoadingGrid(false);
+    }
+  }, [selectedBusiness, startDate, endDate, globalDefaultTargets]);
 
   useEffect(() => {
-    if (selectedEmployeeId) {
-      fetchTargetsWithProgress(selectedEmployeeId);
-      fetchEmployeeBusinesses(selectedEmployeeId);
-    } else {
-      setTargets([]);
-      setAssignedBusinesses([]);
-    }
-  }, [selectedEmployeeId]);
+    fetchGridData();
+  }, [fetchGridData]);
 
-  const fetchEmployeeBusinesses = async (employeeId) => {
-    try {
-      const res = await axios.get(`/admin/employees/${employeeId}/businesses`);
-      setAssignedBusinesses(res.data.data);
-      if (res.data.data.length > 0) {
-        setFormData(prev => ({ ...prev, businessId: prev.businessId || res.data.data[0].id }));
-      } else {
-        setFormData(prev => ({ ...prev, businessId: '' }));
-      }
-    } catch (err) {
-      console.error(err);
-    }
+  // Helper selectors
+  const getSavedValue = (employeeId, metric) => {
+    const t = savedTargets.find(t => t.employee_id === employeeId && t.target_name === metric);
+    return t ? String(t.target_value) : undefined;
   };
 
-  const fetchTargetsWithProgress = async (employeeId) => {
-    try {
-      setLoadingTargets(true);
-      const res = await axios.get(`/targets/employee/${employeeId}/summary`);
-      setTargets(res.data.data);
-    } catch (err) {
-      toast.error('Failed to load target summary');
-    } finally {
-      setLoadingTargets(false);
-    }
+  const getProgress = (employeeId, metric) => {
+    const t = savedTargets.find(t => t.employee_id === employeeId && t.target_name === metric);
+    return t ? t.progress : 0;
   };
 
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+  // Cell change handler
+  const handleCellChange = (empId, metric, value) => {
+    setGridData(prev => ({
+      ...prev,
+      [empId]: { ...(prev[empId] || {}), [metric]: value }
+    }));
   };
 
-  const handleAddTarget = async (e) => {
-    e.preventDefault();
-    const { businessId, targetName, targetValue, startDate, endDate } = formData;
-    if (!businessId || !targetName || !targetValue || !startDate || !endDate) {
-      toast.error('All fields are required');
+  // Delete target from DB
+  const handleDeleteTarget = async (empId, metric) => {
+    // In 'all' mode, we might delete from multiple businesses, so we gather matches
+    const isAll = selectedBusiness?.id === 'all';
+    const matches = savedTargets.filter(t => t.employee_id === empId && t.target_name === metric);
+
+    if (matches.length === 0) {
+      setGridData(prev => ({
+        ...prev,
+        [empId]: { ...(prev[empId] || {}), [metric]: '' }
+      }));
       return;
     }
 
     try {
-      await axios.post('/targets', {
-        employeeId: selectedEmployeeId,
-        businessId,
-        targetName,
-        targetValue: parseInt(targetValue, 10),
-        startDate,
-        endDate
-      });
-      toast.success('Target set successfully');
-      setFormData(prev => ({
-        ...prev,
-        targetName: '',
-        targetValue: '',
-        startDate: '',
-        endDate: ''
-      }));
-      setShowAdd(false);
-      fetchTargetsWithProgress(selectedEmployeeId);
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to set target');
+      if (!isAll) {
+        await axios.delete(`/targets/${matches[0].id}`);
+      } else {
+        // Delete all matches across businesses in parallel
+        await Promise.all(matches.map(m => axios.delete(`/targets/${m.id}`)));
+      }
+      toast.success('Target removed');
+      fetchGridData();
+    } catch {
+      toast.error('Failed to remove target');
     }
   };
 
-  const handleDeleteTarget = async (id) => {
-    if (!confirm('Are you sure you want to delete this performance target?')) return;
+  // Copy row values to all other checked rows
+  const handleCopyRowToAll = (sourceEmpId) => {
+    const sourceRow = gridData[sourceEmpId] || {};
+    setGridData(prev => {
+      const next = { ...prev };
+      for (const empId of selectedEmpIds) {
+        if (empId !== sourceEmpId) {
+          next[empId] = { ...(prev[empId] || {}), ...sourceRow };
+        }
+      }
+      return next;
+    });
+    toast.success('Values copied to all selected employees');
+  };
+
+  // Bulk fill metric column
+  const handleBulkFill = () => {
+    if (!bulkFillMetric) {
+      toast.error('Please select a metric to fill');
+      return;
+    }
+    if (bulkFillValue === '') {
+      toast.error('Please enter a target value');
+      return;
+    }
+    setGridData(prev => {
+      const next = { ...prev };
+      for (const empId of selectedEmpIds) {
+        if (!next[empId]) next[empId] = {};
+        next[empId][bulkFillMetric] = bulkFillValue;
+      }
+      return next;
+    });
+    toast.success(`Filled '${bulkFillMetric}' with ${bulkFillValue} for all selected employees`);
+  };
+
+  // Save the targets grid
+  const handleSaveGrid = async () => {
+    if (!selectedBusiness || !startDate || !endDate) {
+      toast.error('Please configure a business and date range');
+      return;
+    }
+    if (startDate > endDate) {
+      toast.error('Start date must be before end date');
+      return;
+    }
+
+    const isAll = selectedBusiness.id === 'all';
+    const entries = [];
+
+    for (const empId of selectedEmpIds) {
+      const row = gridData[empId] || {};
+      
+      if (!isAll) {
+        // Specific Business
+        for (const metric of columns) {
+          const val = row[metric];
+          if (val !== undefined && val !== null && val !== '') {
+            entries.push({
+              employeeId: empId,
+              businessId: selectedBusiness.id,
+              targetName: metric,
+              targetValue: val,
+              startDate,
+              endDate
+            });
+          }
+        }
+      } else {
+        // "All Businesses" mode: save targets for each business assigned to this employee
+        const assignedBizs = employeeBusinessesMap[empId] || [];
+        if (assignedBizs.length === 0) continue;
+
+        for (const biz of assignedBizs) {
+          for (const metric of columns) {
+            const val = row[metric];
+            if (val !== undefined && val !== null && val !== '') {
+              entries.push({
+                employeeId: empId,
+                businessId: biz.id,
+                targetName: metric,
+                targetValue: val,
+                startDate,
+                endDate
+              });
+            }
+          }
+        }
+      }
+    }
+
+    if (entries.length === 0) {
+      toast.error('No target values entered');
+      return;
+    }
+
     try {
-      await axios.delete(`/targets/${id}`);
-      toast.success('Target deleted');
-      fetchTargetsWithProgress(selectedEmployeeId);
+      setSaving(true);
+      await axios.post('/targets/bulk', { entries });
+      toast.success(`Saved ${entries.length} targets successfully`);
+      fetchGridData();
     } catch (err) {
-      toast.error('Failed to delete target');
+      toast.error(err.response?.data?.error || 'Failed to save targets');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
+  // Column helpers
+  const addColumn = () => {
+    const name = newColName.trim();
+    if (!name) return;
+    if (columns.includes(name)) {
+      toast.error('Column already exists');
+      return;
+    }
+    setColumns(prev => [...prev, name]);
+    setNewColName('');
+    setAddingCol(false);
+    if (!bulkFillMetric) setBulkFillMetric(name);
+  };
 
-  const filteredEmployees = useMemo(() => {
-    return employees.filter(emp =>
-      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [employees, searchTerm]);
+  const removeColumn = (col) => {
+    setColumns(prev => prev.filter(c => c !== col));
+    if (bulkFillMetric === col) setBulkFillMetric(columns[0] || '');
+  };
+
+  // Checkbox handlers
+  const toggleEmployee = (empId) => {
+    setSelectedEmpIds(prev => {
+      const next = new Set(prev);
+      if (next.has(empId)) next.delete(empId); else next.add(empId);
+      return next;
+    });
+  };
+
+  const toggleAllEmployees = () => {
+    if (selectedEmpIds.size === filteredEmployees.length && filteredEmployees.length > 0) {
+      setSelectedEmpIds(new Set());
+    } else {
+      setSelectedEmpIds(new Set(filteredEmployees.map(e => e.id)));
+    }
+  };
+
+  // Real-time Search filter
+  const filteredEmployees = useMemo(() =>
+    employees.filter(e => e.name.toLowerCase().includes(searchTerm.toLowerCase()) || e.email.toLowerCase().includes(searchTerm.toLowerCase())),
+    [employees, searchTerm]
+  );
+
+  // Check if grid has unsaved edits
+  const isDirtyGrid = useMemo(() => {
+    for (const empId of selectedEmpIds) {
+      const row = gridData[empId] || {};
+      for (const metric of columns) {
+        const current = String(row[metric] ?? '');
+        const saved = getSavedValue(empId, metric) ?? '';
+        if (current !== saved && current !== '') return true;
+      }
+    }
+    return false;
+  }, [gridData, savedTargets, selectedEmpIds, columns]);
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5 animate-fade-in pb-10">
+      
+      {/* ─── Page Title Header ─── */}
       <div className="flex items-center justify-between px-1">
         <div>
-          <h1 className="text-xl md:text-2xl font-black text-content-primary tracking-tight">Performance Targets</h1>
-          <p className="mt-1 text-xs text-content-secondary uppercase tracking-[0.15em] font-bold">Set daily/weekly activity targets for employees and monitor progress.</p>
+          <h1 className="text-xl md:text-2xl font-black text-content-primary tracking-tight flex items-center gap-2">
+            <Target className="w-6 h-6 text-brand-primary animate-pulse" />
+            Performance Targets
+          </h1>
+          <p className="mt-1 text-[10px] text-content-secondary uppercase tracking-[0.15em] font-bold">
+            Set and track performance targets in an editable Excel grid or configure defaults.
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 w-full min-w-0">
-        {/* Left Column: Select Employee */}
-        <div className="card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md md:col-span-1 h-fit min-w-0">
-          <div className="px-5 py-3 border-b border-dark-border bg-dark-bg/40 flex flex-col gap-3">
-            <h2 className="text-[10px] font-black uppercase tracking-widest text-content-primary flex items-center gap-2">
-              <Award className="w-3.5 h-3.5 text-brand-primary" />
-              Employees
-            </h2>
-            <input
-              type="text"
-              placeholder="Search employee..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-1.5 text-xs text-content-primary outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors placeholder:text-content-muted/50"
-            />
-          </div>
+      {/* ─── Dashboard-Style Top Filter Bar (Always Visible) ─── */}
+      <div className="card border-dark-border/40 bg-dark-surface/40 p-4 shadow-md backdrop-blur-md">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(130px,1fr))] gap-4 items-end">
           
-          <div className="p-3">
-            {loadingEmployees ? (
-              <div className="flex h-10 w-full items-center justify-center">
-                <Spinner size="sm" />
-              </div>
-            ) : filteredEmployees.length === 0 ? (
-              <p className="text-content-muted text-[10px] uppercase font-bold text-center py-2">No matching employees.</p>
+          {/* Business Select */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1 flex items-center gap-1">
+              <Building2 size={10} className="text-brand-primary" />
+              Market Unit / Business
+            </label>
+            {loadingBiz && businesses.length === 0 ? (
+              <div className="h-10 bg-dark-bg border border-dark-border rounded-lg flex items-center justify-center"><Spinner size="sm" /></div>
             ) : (
-              <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
-                {filteredEmployees.map((emp) => (
-                  <button
-                    key={emp.id}
-                    onClick={() => setSelectedEmployeeId(emp.id)}
-                    className={`w-full text-left px-4 py-3 rounded-lg border transition-all ${
-                      selectedEmployeeId === emp.id
-                        ? 'bg-brand-primary/10 border-brand-primary text-content-primary font-medium'
-                        : 'bg-dark-surface/50 border-dark-border text-content-secondary hover:bg-dark-surface hover:text-content-primary'
-                    }`}
-                  >
-                    <div className="font-bold text-xs text-content-primary">{emp.name}</div>
-                    <div className="text-[10px] text-content-muted mt-0.5 truncate">{emp.email}</div>
-                  </button>
+              <select
+                className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10 font-bold cursor-pointer"
+                value={selectedBusiness?.id || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'all') {
+                    setSelectedBusiness({ id: 'all', business_name: 'All Businesses' });
+                  } else {
+                    const found = businesses.find(b => String(b.id) === String(val));
+                    if (found) setSelectedBusiness(found);
+                  }
+                }}
+              >
+                <option value="all">All Businesses</option>
+                {businesses.map((biz) => (
+                  <option key={biz.id} value={biz.id}>{biz.business_name}</option>
                 ))}
-              </div>
+              </select>
             )}
           </div>
+
+          {/* Activity Type Dropdown */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1 flex items-center gap-1">
+              <Filter size={10} className="text-brand-primary" />
+              Activity Type
+            </label>
+            <select
+              className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10 font-bold cursor-pointer"
+              value={activityType}
+              onChange={(e) => setActivityType(e.target.value)}
+            >
+              <option value="Callings">Callings</option>
+              <option value="Fields">Field Visits</option>
+            </select>
+          </div>
+
+          <div className="min-w-fit">
+            <Button
+              className={`h-10 text-[10px] font-black uppercase tracking-wider px-4 shrink-0 ${isDirtyGrid ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-dark-bg' : ''}`}
+              onClick={handleSaveGrid}
+              disabled={saving || loadingGrid}
+            >
+              {saving ? <Spinner size="sm" className="mr-1.5" /> : <Save size={12} className="mr-1.5" />}
+              {saving ? 'Saving...' : 'Save & Send Targets'}
+            </Button>
+          </div>
+
         </div>
-
-        {/* Targets Table & Form */}
-        <div className="md:col-span-3 space-y-5 min-w-0">
-          {selectedEmployeeId ? (
-            <>
-              {/* Add Target Header Card */}
-              <div className="flex items-center justify-between px-1">
-                <h2 className="text-sm font-semibold text-content-primary uppercase tracking-wider">
-                  Targets for <span className="text-brand-primary font-extrabold">{selectedEmployee?.name}</span>
-                </h2>
-                {assignedBusinesses.length > 0 && (
-                  <Button onClick={() => setShowAdd(!showAdd)} className="h-8 text-[10px] font-black uppercase tracking-wider px-3">
-                    <Plus className="w-3.5 h-3.5 mr-1" />
-                    Set Target
-                  </Button>
-                )}
-              </div>
-
-              {assignedBusinesses.length === 0 && (
-                <div className="card p-5 border border-brand-warning/30 bg-brand-warning/5 text-brand-warning text-xs font-semibold rounded-lg">
-                  Before you can set targets, you must assign at least one business to this employee in the Assignments panel.
-                </div>
-              )}
-
-              {showAdd && assignedBusinesses.length > 0 && (
-                <div className="card border-dark-border/40 bg-dark-surface/40 p-5 backdrop-blur-md shadow-md animate-fade-in">
-                  <div className="border-b border-dark-border/60 pb-3 mb-4">
-                    <h3 className="text-[10px] font-black uppercase tracking-widest text-content-primary">Set Performance Target</h3>
-                  </div>
-                  <form onSubmit={handleAddTarget} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-content-secondary mb-2 block ml-1">Business</label>
-                      <select
-                        name="businessId"
-                        value={formData.businessId}
-                        onChange={handleInputChange}
-                        className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10"
-                        required
-                      >
-                        {assignedBusinesses.map(b => (
-                          <option key={b.id} value={b.id}>{b.business_name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <Input 
-                      label="Target Metric Name" 
-                      name="targetName"
-                      value={formData.targetName}
-                      onChange={handleInputChange}
-                      placeholder="e.g. Calls Made"
-                      className="h-10"
-                      required
-                    />
-
-                    <Input 
-                      label="Target Value" 
-                      name="targetValue"
-                      type="number"
-                      value={formData.targetValue}
-                      onChange={handleInputChange}
-                      placeholder="100"
-                      className="h-10"
-                      required
-                    />
-
-                    <Input 
-                      label="Start Date" 
-                      name="startDate"
-                      type="date"
-                      value={formData.startDate}
-                      onChange={handleInputChange}
-                      className="h-10"
-                      required
-                    />
-
-                    <Input 
-                      label="End Date" 
-                      name="endDate"
-                      type="date"
-                      value={formData.endDate}
-                      onChange={handleInputChange}
-                      className="h-10"
-                      required
-                    />
-
-                    <div className="flex justify-end gap-2 lg:col-span-3 mt-2">
-                      <Button type="button" variant="secondary" onClick={() => setShowAdd(false)} className="h-10 text-xs font-black uppercase tracking-wider">Cancel</Button>
-                      <Button type="submit" className="h-10 text-xs font-black uppercase tracking-wider">Set Target</Button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              {/* Targets List */}
-              <div className="card overflow-hidden px-0 py-0 border-brand-primary/10 bg-dark-surface/40 backdrop-blur-md shadow-md">
-                {loadingTargets ? (
-                  <div className="flex h-32 items-center justify-center">
-                    <Spinner />
-                  </div>
-                ) : targets.length === 0 ? (
-                  <div className="py-12 text-center text-[11px] font-medium text-content-muted uppercase tracking-widest">
-                    No performance targets set for {selectedEmployee?.name}.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <Thead>
-                        <Tr className="bg-dark-bg/20">
-                          <Th className="text-[10px] uppercase tracking-wider">Target Metric</Th>
-                          <Th className="text-[10px] uppercase tracking-wider">Business</Th>
-                          <Th className="text-[10px] uppercase tracking-wider">Target Duration</Th>
-                          <Th className="text-[10px] uppercase tracking-wider">Progress Status</Th>
-                          <Th className="text-[10px] uppercase tracking-wider text-right">Actions</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {targets.map((t) => {
-                          const targetBiz = assignedBusinesses.find(b => b.id === t.business_id);
-                          const progressPercentage = Math.min(
-                            Math.round((t.progress / t.target_value) * 100),
-                            100
-                          );
-                          const isCompleted = t.progress >= t.target_value;
-
-                          return (
-                            <Tr key={t.id} className="hover:bg-brand-primary/[0.03] transition-colors">
-                              <Td>
-                                <div className="font-bold text-content-primary text-xs">{t.target_name}</div>
-                              </Td>
-                              <Td>
-                                <span className="text-xs text-content-secondary font-semibold">
-                                  {targetBiz?.business_name || 'Assigned Business'}
-                                </span>
-                              </Td>
-                              <Td>
-                                <div className="flex items-center gap-1 text-xs text-content-muted font-mono">
-                                  <Calendar className="w-3.5 h-3.5" />
-                                  <span>{new Date(t.start_date).toLocaleDateString()} - {new Date(t.end_date).toLocaleDateString()}</span>
-                                </div>
-                              </Td>
-                              <Td className="w-[240px]">
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center justify-between text-xs font-semibold">
-                                    <span className="text-content-secondary flex items-center gap-1">
-                                      {t.progress} / {t.target_value}
-                                      {isCompleted && <CheckCircle2 className="w-3.5 h-3.5 text-brand-success" />}
-                                    </span>
-                                    <span className={isCompleted ? 'text-brand-success' : 'text-brand-primary'}>
-                                      {progressPercentage}%
-                                    </span>
-                                  </div>
-                                  <div className="progress-track w-full">
-                                    <div
-                                      className={`progress-fill ${isCompleted ? 'bg-brand-success' : progressPercentage >= 60 ? 'bg-brand-secondary' : 'bg-brand-primary'}`}
-                                      style={{ width: `${progressPercentage}%` }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              </Td>
-                              <Td className="text-right">
-                                <button
-                                  onClick={() => handleDeleteTarget(t.id)}
-                                  className="p-2 text-content-muted hover:text-brand-danger transition-colors"
-                                  title="Delete Target"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </Td>
-                            </Tr>
-                          );
-                        })}
-                      </Tbody>
-                    </Table>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="card border-dark-border/40 bg-dark-surface/40 p-6 text-center text-[11px] font-bold uppercase tracking-widest text-content-muted flex flex-col items-center justify-center h-52 shadow-md">
-              <Target className="w-8 h-8 text-content-muted mb-2 animate-pulse" />
-              Select an employee from the left panel to manage their performance targets.
-            </div>
-          )}
-        </div>
+        
+        {isDirtyGrid && (
+          <p className="text-[10px] text-amber-400 font-semibold mt-3.5 flex items-center gap-1.5 animate-fade-in pl-1">
+            <span className="w-2 h-2 rounded-full bg-amber-400 inline-block animate-pulse" />
+            Unsaved modifications in grid — click "Save & Send Targets" to apply
+          </p>
+        )}
       </div>
+
+      {/* ─── Tabs ─── */}
+      <div className="flex items-center gap-1 border-b border-dark-border/40 pb-0 pt-2">
+        <button
+          onClick={() => setActiveTab('daily')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${
+            activeTab === 'daily' 
+              ? 'text-brand-primary border-brand-primary' 
+              : 'text-content-muted border-transparent hover:text-content-primary hover:border-dark-border'
+          }`}
+        >
+          <Calendar size={14} />
+          Daily Targets Grid
+        </button>
+        <button
+          onClick={() => setActiveTab('default')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${
+            activeTab === 'default' 
+              ? 'text-brand-primary border-brand-primary' 
+              : 'text-content-muted border-transparent hover:text-content-primary hover:border-dark-border'
+          }`}
+        >
+          <Settings size={14} />
+          Default Targets Config
+        </button>
+      </div>
+
+      {activeTab === 'default' && (
+        <DefaultTargetsManager 
+          businesses={businesses} 
+          selectedBusiness={selectedBusiness}
+          columns={columns}
+          activityType={activityType}
+          onUpdate={reloadDefaultTargets}
+          globalDefaultTargets={globalDefaultTargets}
+        />
+      )}
+
+      {activeTab === 'daily' && (
+        <>
+          {/* ─── Excel Bulk Fill Helper panel ─── */}
+      {employees.length > 0 && (
+        <div className="card border-dark-border/40 bg-dark-surface/40 p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 backdrop-blur-md">
+          <div className="space-y-0.5">
+            <h4 className="text-[10px] font-black uppercase tracking-wider text-content-primary flex items-center gap-1.5">
+              <Sparkles size={11} className="text-brand-primary" />
+              Excel Bulk Fill Helper
+            </h4>
+            <p className="text-[9px] text-content-muted">
+              Quickly copy a common target value to all checked employee rows below.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <select
+              value={bulkFillMetric}
+              onChange={e => setBulkFillMetric(e.target.value)}
+              className="bg-dark-bg border border-dark-border rounded px-2.5 py-1 text-[10px] text-content-primary outline-none font-bold cursor-pointer h-7"
+            >
+              <option value="" disabled>Select Metric</option>
+              {columns.map(col => (
+                <option key={col} value={col}>{col}</option>
+              ))}
+            </select>
+
+            <input
+              type="number"
+              min="0"
+              placeholder="Value..."
+              value={bulkFillValue}
+              onChange={e => setBulkFillValue(e.target.value)}
+              className="bg-dark-bg border border-dark-border rounded px-2.5 py-1 text-[10px] text-content-primary outline-none max-w-[80px] h-7"
+            />
+
+            <Button
+              variant="secondary"
+              onClick={handleBulkFill}
+              className="h-7 text-[9px] font-black uppercase tracking-wider px-3.5 hover:bg-brand-primary hover:text-dark-bg hover:border-brand-primary"
+            >
+              Apply to Checked
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Excel Grid Table ─── */}
+      <div className="card overflow-hidden px-0 py-0 border-dark-border/60 bg-dark-surface/40 shadow-md">
+        {loadingGrid ? (
+          <div className="flex h-48 items-center justify-center gap-3">
+            <Spinner />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-content-muted animate-pulse">Loading Excel boxes...</p>
+          </div>
+        ) : filteredEmployees.length === 0 ? (
+          <div className="py-16 text-center text-[10px] font-bold uppercase tracking-widest text-content-muted flex flex-col items-center gap-3">
+            <Users size={28} className="text-content-muted/40" />
+            No active employees found matching filters
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse text-xs">
+              
+              {/* Table head */}
+              <thead>
+                <tr className="bg-dark-bg/60 border-b border-dark-border">
+                  
+                  {/* Master Checkbox */}
+                  <th className="w-8 px-2 py-2.5 border-r border-dark-border/40 sticky left-0 bg-dark-bg/80 z-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedEmpIds.size === filteredEmployees.length && filteredEmployees.length > 0}
+                      onChange={toggleAllEmployees}
+                      className="w-3.5 h-3.5 accent-brand-primary cursor-pointer rounded"
+                    />
+                  </th>
+                  
+                  {/* Employee col */}
+                  <th className="text-left px-3 py-2.5 text-[9px] uppercase tracking-wider font-extrabold text-content-muted border-r border-dark-border/60 sticky left-8 bg-dark-bg/80 z-10 min-w-[170px]">
+                    <div className="flex items-center gap-1.5">
+                      <Users size={10} />
+                      Employee ({selectedEmpIds.size}/{filteredEmployees.length})
+                    </div>
+                  </th>
+
+                  {/* Metric columns */}
+                  {columns.map(col => (
+                    <th key={col} className="text-center px-2 py-2.5 text-[9px] uppercase tracking-wider font-extrabold text-content-muted border-r border-dark-border/40 min-w-[130px]">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="truncate max-w-[100px]">{col}</span>
+                        <button
+                          onClick={() => removeColumn(col)}
+                          className="text-content-muted/40 hover:text-brand-danger transition-colors shrink-0 p-0.5"
+                          title="Delete column"
+                        >
+                          <Trash2 size={9} />
+                        </button>
+                      </div>
+                    </th>
+                  ))}
+
+                  {/* Add column */}
+                  <th className="px-3 py-2.5 min-w-[180px]">
+                    {addingCol ? (
+                      <div className="flex items-center gap-1 animate-fade-in">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={newColName}
+                          onChange={e => setNewColName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') addColumn(); if (e.key === 'Escape') setAddingCol(false); }}
+                          placeholder="Metric name..."
+                          className="flex-1 bg-dark-bg border border-brand-primary rounded px-2 py-1 text-[10px] text-content-primary outline-none min-w-0"
+                        />
+                        <button onClick={addColumn} className="text-brand-success hover:text-brand-success/80 p-0.5"><CheckCircle2 size={12} /></button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setAddingCol(true)}
+                          className="flex items-center gap-1 text-[9px] text-content-muted hover:text-brand-primary transition-colors font-bold uppercase tracking-wider whitespace-nowrap"
+                        >
+                          <Plus size={10} /> Add Metric
+                        </button>
+                        <span className="text-dark-border">/</span>
+                        <select
+                          value=""
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val && !columns.includes(val)) {
+                              setColumns(prev => [...prev, val]);
+                            }
+                          }}
+                          className="bg-dark-bg border border-dark-border rounded px-1.5 py-0.5 text-[9px] text-content-muted outline-none cursor-pointer max-w-[85px] font-bold"
+                        >
+                          <option value="">Preset</option>
+                          {PRESET_METRICS.filter(m => !columns.includes(m)).map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </th>
+                </tr>
+              </thead>
+
+              {/* Table body */}
+              <tbody>
+                {filteredEmployees.map((emp, idx) => {
+                  const isChecked = selectedEmpIds.has(emp.id);
+                  return (
+                    <tr
+                      key={emp.id}
+                      className={`group border-b border-dark-border/30 transition-colors ${
+                        !isChecked 
+                          ? 'opacity-40 bg-dark-bg/10' 
+                          : idx % 2 === 0 ? 'bg-dark-surface/25' : 'bg-dark-bg/15'
+                      } hover:bg-brand-primary/[0.03]`}
+                    >
+                      {/* Checkbox */}
+                      <td className="px-2 py-1.5 border-r border-dark-border/30 sticky left-0 bg-inherit z-10">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleEmployee(emp.id)}
+                          className="w-3.5 h-3.5 accent-brand-primary cursor-pointer rounded"
+                        />
+                      </td>
+
+                      {/* Employee Identity */}
+                      <td className="px-3 py-1.5 border-r border-dark-border/40 sticky left-8 bg-dark-surface z-10">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-col ml-1 w-full truncate">
+                            <span className="font-bold text-content-primary truncate" title={emp.name}>{emp.name}</span>
+                            <span className="text-[8px] text-content-muted font-normal truncate" title={emp.email}>{emp.email}</span>
+                          </div>
+                          <button 
+                            onClick={() => setHistoryEmployee(emp)}
+                            className="ml-auto p-1 text-content-muted hover:text-brand-primary transition-colors flex-shrink-0 bg-dark-bg/50 border border-dark-border rounded hover:bg-dark-surface"
+                            title="View Target History"
+                          >
+                            <History size={12} />
+                          </button>
+                          <button
+                            onClick={() => handleCopyRowToAll(emp.id)}
+                            disabled={!isChecked}
+                            title="Copy row values to all other checked employee rows"
+                            className="opacity-0 group-hover:opacity-100 disabled:opacity-0 text-content-muted hover:text-brand-primary transition-all p-1 shrink-0 bg-dark-bg border border-dark-border rounded-md"
+                          >
+                            <Copy size={10} />
+                          </button>
+                        </div>
+                      </td>
+
+                      {/* Metric cells */}
+                      {columns.map(metric => (
+                        <td key={metric} className="p-0">
+                          <Cell
+                            value={gridData[emp.id]?.[metric] ?? ''}
+                            savedValue={getSavedValue(emp.id, metric)}
+                            progress={getProgress(emp.id, metric)}
+                            disabled={!isChecked}
+                            onChange={val => handleCellChange(emp.id, metric, val)}
+                            onDelete={() => handleDeleteTarget(emp.id, metric)}
+                          />
+                        </td>
+                      ))}
+
+                      {/* Spacer cell */}
+                      <td className="px-3 py-1.5" />
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Legend */}
+        {filteredEmployees.length > 0 && (
+          <div className="px-4 py-3 border-t border-dark-border/40 bg-dark-bg/30 flex flex-wrap items-center gap-5 text-[9px] text-content-muted font-bold uppercase tracking-wider">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded bg-amber-500/20 border border-amber-400/40 inline-block" />
+              Unsaved grid box
+            </span>
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 size={10} className="text-brand-success" />
+              Saved target
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="p-0.5 rounded border border-dark-border bg-dark-bg inline-flex"><Copy size={8} /></span>
+              Hover row to copy employee targets to all
+            </span>
+          </div>
+        )}
+      </div>
+      </>
+      )}
+
+      {/* Modals */}
+      {historyEmployee && (
+        <TargetHistoryModal
+          employee={historyEmployee}
+          onClose={() => setHistoryEmployee(null)}
+        />
+      )}
     </div>
   );
 };

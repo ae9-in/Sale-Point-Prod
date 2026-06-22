@@ -3,7 +3,7 @@ const router = express.Router();
 const { 
   getUsers, approveUser, rejectUser, createUser, deleteUser,
   updateUserPassword, assignBusiness, unassignBusiness, getEmployeeBusinesses,
-  getBusinessEmployees, updateUserLocation, updateEmployeeTimings
+  getBusinessEmployees, updateUserLocation, updateEmployeeTimings, updateUserWorkingHours
 } = require('../controllers/adminController');
 const authenticate = require('../middleware/authenticate');
 const authorize = require('../middleware/authorize');
@@ -32,6 +32,10 @@ router.patch('/users/:id/password', [
   body('password').isLength({ min: 6 })
 ], validate, updateUserPassword);
 router.patch('/users/:id/location', updateUserLocation);
+router.patch('/users/:id/working-hours', [
+  body('shiftStart').notEmpty(),
+  body('shiftEnd').notEmpty()
+], validate, updateUserWorkingHours);
 
 router.post('/users', [
   body('name').notEmpty(),

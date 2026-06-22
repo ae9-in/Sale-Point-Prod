@@ -9,6 +9,22 @@ import toast from 'react-hot-toast';
 import { Briefcase, Calendar, Mail, Phone, Plus, Shield, Trash2, User, MapPin, Clock } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import ManageTimingsModal from '../../components/admin/ManageTimingsModal';
+import EditShiftModal from '../../components/admin/EditShiftModal';
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':');
+  const hours = parseInt(h, 10);
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${m} ${ampm}`;
+};
+
+const getShiftString = (employee) => {
+  const start = formatTime(employee.shift_start || '09:30:00');
+  const end = formatTime(employee.shift_end || '19:00:00');
+  return `${start} - ${end}`;
+};
 
 const emptyForm = { name: '', email: '', phone: '', password: '', locationId: '' };
 
@@ -26,6 +42,7 @@ const Employees = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showManageTimings, setShowManageTimings] = useState(false);
   const [selectedBusinessForTimings, setSelectedBusinessForTimings] = useState(null);
+  const [showEditShift, setShowEditShift] = useState(false);
 
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.id === selectedEmployeeId),
@@ -233,6 +250,9 @@ const Employees = () => {
                       <span className="inline-flex items-center text-[9px] font-bold text-brand-secondary uppercase tracking-wider bg-brand-secondary/15 px-1.5 py-0.5 rounded-md flex-shrink-0">
                         {employee.location_name || 'Bangalore'}
                       </span>
+                      <span className="inline-flex items-center text-[9px] font-bold text-brand-primary uppercase tracking-wider bg-brand-primary/10 px-1.5 py-0.5 rounded-md flex-shrink-0">
+                        <Clock className="w-3 h-3 mr-1" /> {getShiftString(employee)}
+                      </span>
                     </div>
                     <p className="mt-1.5 flex items-center gap-1.5 text-sm text-content-secondary min-w-0">
                       <Mail className="h-3.5 w-3.5 flex-shrink-0" />
@@ -268,11 +288,17 @@ const Employees = () => {
                     <span className="inline-flex items-center gap-1.5"><MapPin className="h-4 w-4 text-brand-secondary" /> {selectedEmployee.location_name || 'Bangalore'}</span>
                     <span className="inline-flex items-center gap-1.5"><Calendar className="h-4 w-4" /> Joined {new Date(selectedEmployee.created_at).toLocaleDateString()}</span>
                     <span className="inline-flex items-center gap-1.5"><Shield className="h-4 w-4" /> Employee</span>
+                    <span className="inline-flex items-center gap-1.5"><Clock className="h-4 w-4 text-brand-primary" /> Shift: {getShiftString(selectedEmployee)}</span>
                   </div>
                 </div>
-                <Button variant="danger" onClick={() => handleDeleteEmployee(selectedEmployee.id)} className="h-9 text-[11px] font-black uppercase tracking-wider">
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={() => setShowEditShift(true)} className="h-9 text-[11px] font-black uppercase tracking-wider">
+                    <Clock className="mr-2 h-4 w-4" /> Edit Shift
+                  </Button>
+                  <Button variant="danger" onClick={() => handleDeleteEmployee(selectedEmployee.id)} className="h-9 text-[11px] font-black uppercase tracking-wider">
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -386,6 +412,16 @@ const Employees = () => {
           }}
           onSaveSuccess={() => {
             fetchEmployeeDetails(selectedEmployee.id);
+          }}
+        />
+      )}
+
+      {showEditShift && selectedEmployee && (
+        <EditShiftModal
+          employee={selectedEmployee}
+          onClose={() => setShowEditShift(false)}
+          onSaveSuccess={() => {
+            fetchEmployees();
           }}
         />
       )}

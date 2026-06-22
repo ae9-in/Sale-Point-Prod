@@ -12,6 +12,21 @@ import { exportToPdf, exportToJpg } from '../../utils/exportUtils';
 
 const currentYear = new Date().getFullYear();
 
+const formatTime = (timeStr) => {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':');
+  const hours = parseInt(h, 10);
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${m} ${ampm}`;
+};
+
+const getShiftString = (employee) => {
+  const start = formatTime(employee?.shift_start || '09:30:00');
+  const end = formatTime(employee?.shift_end || '19:00:00');
+  return `${start} - ${end}`;
+};
+
 const buildParams = (filters) => {
   const params = {};
   if (filters.employeeId) params.employeeId = filters.employeeId;
@@ -581,11 +596,18 @@ const PerformanceAnalytics = ({
                       const convRate = dialled > 0 ? Math.round((conversions / dialled) * 100) : null;
                       const leadRate = dialled > 0 ? Math.round((leads / dialled) * 100) : null;
 
+                      const employeeObj = employees?.find(e => e.id === row.employee_id);
+
                       return (
                         <Tr key={`${row.employee_id}-${row.business_id}`} className="hover:bg-brand-primary/[0.03] transition-colors">
                           <Td>
                             <p className="font-bold text-content-primary text-xs">{row.employee_name}</p>
                             {row.employee_email && <p className="text-[9px] text-content-muted">{row.employee_email}</p>}
+                            {employeeObj && (
+                              <p className="mt-0.5 text-[9px] font-bold text-brand-primary bg-brand-primary/10 inline-block px-1.5 py-0.5 rounded">
+                                Shift: {getShiftString(employeeObj)}
+                              </p>
+                            )}
                           </Td>
                           <Td><p className="text-xs text-content-secondary">{row.business_name}</p></Td>
                           <Td className="text-center font-mono text-xs">{dialled}</Td>
@@ -614,11 +636,18 @@ const PerformanceAnalytics = ({
                       const convRate = visits > 0 ? Math.round((conversions / visits) * 100) : null;
                       const leadRate = visits > 0 ? Math.round((leads / visits) * 100) : null;
 
+                      const employeeObj = employees?.find(e => e.id === row.employee_id);
+
                       return (
                         <Tr key={`${row.employee_id}-${row.business_id}`} className="hover:bg-brand-primary/[0.03] transition-colors">
                           <Td>
                             <p className="font-bold text-content-primary text-xs">{row.employee_name}</p>
                             {row.employee_email && <p className="text-[9px] text-content-muted">{row.employee_email}</p>}
+                            {employeeObj && (
+                              <p className="mt-0.5 text-[9px] font-bold text-brand-primary bg-brand-primary/10 inline-block px-1.5 py-0.5 rounded">
+                                Shift: {getShiftString(employeeObj)}
+                              </p>
+                            )}
                           </Td>
                           <Td><p className="text-xs text-content-secondary">{row.business_name}</p></Td>
                           <Td className="text-center font-mono text-xs">{visits}</Td>

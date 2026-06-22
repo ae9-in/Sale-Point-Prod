@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../api/axiosInstance';
 import PerformanceAnalytics from '../../components/analytics/PerformanceAnalytics';
@@ -7,6 +7,21 @@ import Spinner from '../../components/ui/Spinner';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../../components/ui/Table';
 import { Briefcase, FileText, Target } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':');
+  const hours = parseInt(h, 10);
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${m} ${ampm}`;
+};
+
+const getShiftString = (user) => {
+  const start = formatTime(user?.shift_start || '09:30:00');
+  const end = formatTime(user?.shift_end || '19:00:00');
+  return `${start} - ${end}`;
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -48,7 +63,12 @@ const Dashboard = () => {
   return (
     <div className="space-y-8 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold text-content-primary">Welcome back, {user?.name}</h1>
+        <h1 className="text-2xl font-bold text-content-primary flex items-center flex-wrap gap-2">
+          Welcome back, {user?.name}
+          <span className="text-xs font-semibold text-brand-primary bg-brand-primary/10 px-2 py-1 rounded-md border border-brand-primary/20">
+            Shift: {getShiftString(user)}
+          </span>
+        </h1>
         <p className="mt-1 text-content-secondary">Your assigned businesses, targets, reports, and personal performance.</p>
       </div>
 

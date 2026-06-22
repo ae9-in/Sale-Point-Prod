@@ -6,6 +6,21 @@ import Button from '../../components/ui/Button';
 import toast from 'react-hot-toast';
 import { User, Mail, Phone, Shield, Lock, CheckCircle2, Target, Clock, MapPin } from 'lucide-react';
 
+const formatTime = (timeStr) => {
+  if (!timeStr) return '';
+  const [h, m] = timeStr.split(':');
+  const hours = parseInt(h, 10);
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12;
+  return `${displayHours}:${m} ${ampm}`;
+};
+
+const getShiftString = (user) => {
+  const start = formatTime(user?.shift_start || '09:30:00');
+  const end = formatTime(user?.shift_end || '19:00:00');
+  return `${start} - ${end}`;
+};
+
 const EmployeeProfile = () => {
   const { user } = useAuthStore();
   const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
@@ -97,6 +112,11 @@ const EmployeeProfile = () => {
             {user?.location_name && (
               <span className="text-[10px] font-bold bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full flex items-center gap-1">
                 <MapPin size={10} /> {user.location_name}
+              </span>
+            )}
+            {user && (
+              <span className="text-[10px] font-bold bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Clock size={10} /> Shift: {getShiftString(user)}
               </span>
             )}
           </div>
