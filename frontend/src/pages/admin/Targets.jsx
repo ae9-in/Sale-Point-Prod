@@ -853,6 +853,7 @@ const Targets = () => {
       {historyEmployee && (
         <TargetHistoryModal
           employee={historyEmployee}
+          businesses={businesses}
           onClose={() => setHistoryEmployee(null)}
         />
       )}

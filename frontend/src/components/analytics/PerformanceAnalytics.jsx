@@ -135,6 +135,26 @@ const toExcelData = (rows, activityType) => {
   return [headers, ...body];
 };
 
+const MiniProgressBar = ({ target }) => {
+  if (!target || target.target_value <= 0) return null;
+  const percent = (target.progress / target.target_value) * 100;
+  const clamped = percent > 100 ? 100 : percent.toFixed(0);
+  const isSuccess = clamped >= 100;
+  const isWarning = clamped > 0 && clamped < 100;
+
+  return (
+    <div className="mt-1 flex flex-col gap-0.5 w-16 mx-auto">
+      <div className="h-1 bg-dark-surface border border-dark-border/50 rounded-full overflow-hidden">
+        <div 
+          className={`h-full rounded-full transition-all duration-500 ${isSuccess ? 'bg-brand-success shadow-[0_0_8px_rgba(34,197,94,0.5)]' : isWarning ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.3)]' : 'bg-content-muted'}`}
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
+      <span className="text-[8px] font-bold text-content-muted/80 text-right">{target.progress}/{target.target_value}</span>
+    </div>
+  );
+};
+
 const PerformanceAnalytics = ({
   title = 'Performance Intelligence',
   employees = [],
@@ -162,6 +182,7 @@ const PerformanceAnalytics = ({
     sortDir: 'desc'
   });
   const [data, setData] = useState({ summary: [], details: [] });
+  const [targets, setTargets] = useState([]);
   const [locations, setLocations] = useState([]);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [groupBy, setGroupBy] = useState('employee');
@@ -193,8 +214,13 @@ const PerformanceAnalytics = ({
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        const res = await axios.get('/analytics/performance', { params: buildParams(filters) });
-        setData(res.data.data);
+        const params = buildParams(filters);
+        const [perfRes, targetsRes] = await Promise.all([
+          axios.get('/analytics/performance', { params }),
+          axios.get('/analytics/targets-progress', { params })
+        ]);
+        setData(perfRes.data.data);
+        setTargets(targetsRes.data.data || []);
       } finally {
         setLoading(false);
       }
@@ -202,6 +228,31 @@ const PerformanceAnalytics = ({
 
     fetchAnalytics();
   }, [filters]);
+
+  const targetMap = useMemo(() => {
+    const map = {};
+    targets.forEach(t => {
+      const key = `${t.employee_id}-${t.business_id}`;
+      if (!map[key]) map[key] = {};
+      map[key][t.target_name.toLowerCase()] = t;
+    });
+    return map;
+  }, [targets]);
+
+  const businessTargetMap = useMemo(() => {
+    const map = {};
+    targets.forEach(t => {
+      const key = t.business_id;
+      if (!map[key]) map[key] = {};
+      const tName = t.target_name.toLowerCase();
+      if (!map[key][tName]) {
+        map[key][tName] = { progress: 0, target_value: 0 };
+      }
+      map[key][tName].progress += t.progress;
+      map[key][tName].target_value += t.target_value;
+    });
+    return map;
+  }, [targets]);
 
   const filteredSummary = useMemo(() => {
     if (!employeeSearch) return data.summary;
@@ -597,6 +648,7 @@ const PerformanceAnalytics = ({
                       const leadRate = dialled > 0 ? Math.round((leads / dialled) * 100) : null;
 
                       const employeeObj = employees?.find(e => e.id === row.employee_id);
+                      const tMap = targetMap[`${row.employee_id}-${row.business_id}`] || {};
 
                       return (
                         <Tr key={`${row.employee_id}-${row.business_id}`} className="hover:bg-brand-primary/[0.03] transition-colors">
@@ -610,17 +662,27 @@ const PerformanceAnalytics = ({
                             )}
                           </Td>
                           <Td><p className="text-xs text-content-secondary">{row.business_name}</p></Td>
-                          <Td className="text-center font-mono text-xs">{dialled}</Td>
-                          <Td className="text-center font-mono text-xs">{answered}</Td>
+                          <Td className="text-center font-mono text-xs">
+                            {dialled}
+                            <MiniProgressBar target={tMap['calls made']} />
+                          </Td>
+                          <Td className="text-center font-mono text-xs">
+                            {answered}
+                            <MiniProgressBar target={tMap['answered calls']} />
+                          </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {answerRate !== null ? `${answerRate}%` : '—'}
                           </Td>
-                          <Td className="text-center font-mono text-xs">{conversions}</Td>
+                          <Td className="text-center font-mono text-xs">
+                            {conversions}
+                            <MiniProgressBar target={tMap['conversions']} />
+                          </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {convRate !== null ? `${convRate}%` : '—'}
                           </Td>
                           <Td className="text-center">
                             <p className="font-black text-brand-primary text-sm">{leads.toLocaleString()}</p>
+                            <MiniProgressBar target={tMap['positive leads']} />
                           </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-brand-primary">
                             {leadRate !== null ? `${leadRate}%` : '—'}
@@ -637,6 +699,7 @@ const PerformanceAnalytics = ({
                       const leadRate = visits > 0 ? Math.round((leads / visits) * 100) : null;
 
                       const employeeObj = employees?.find(e => e.id === row.employee_id);
+                      const tMap = targetMap[`${row.employee_id}-${row.business_id}`] || {};
 
                       return (
                         <Tr key={`${row.employee_id}-${row.business_id}`} className="hover:bg-brand-primary/[0.03] transition-colors">
@@ -650,13 +713,20 @@ const PerformanceAnalytics = ({
                             )}
                           </Td>
                           <Td><p className="text-xs text-content-secondary">{row.business_name}</p></Td>
-                          <Td className="text-center font-mono text-xs">{visits}</Td>
-                          <Td className="text-center font-mono text-xs">{conversions}</Td>
+                          <Td className="text-center font-mono text-xs">
+                            {visits}
+                            <MiniProgressBar target={tMap['visits made']} />
+                          </Td>
+                          <Td className="text-center font-mono text-xs">
+                            {conversions}
+                            <MiniProgressBar target={tMap['conversions']} />
+                          </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {convRate !== null ? `${convRate}%` : '—'}
                           </Td>
                           <Td className="text-center">
                             <p className="font-black text-brand-primary text-sm">{leads.toLocaleString()}</p>
+                            <MiniProgressBar target={tMap['positive leads']} />
                           </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-brand-primary">
                             {leadRate !== null ? `${leadRate}%` : '—'}
@@ -680,20 +750,32 @@ const PerformanceAnalytics = ({
                       const convRate = dialled > 0 ? Math.round((conversions / dialled) * 100) : null;
                       const leadRate = dialled > 0 ? Math.round((leads / dialled) * 100) : null;
 
+                      const tMap = businessTargetMap[row.business_id] || {};
+
                       return (
                         <Tr key={row.business_id} className="hover:bg-brand-primary/[0.03] transition-colors">
                           <Td><p className="font-bold text-content-primary text-xs">{row.business_name}</p></Td>
-                          <Td className="text-center font-mono text-xs">{dialled}</Td>
-                          <Td className="text-center font-mono text-xs">{answered}</Td>
+                          <Td className="text-center font-mono text-xs">
+                            {dialled}
+                            <MiniProgressBar target={tMap['calls made']} />
+                          </Td>
+                          <Td className="text-center font-mono text-xs">
+                            {answered}
+                            <MiniProgressBar target={tMap['answered calls']} />
+                          </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {answerRate !== null ? `${answerRate}%` : '—'}
                           </Td>
-                          <Td className="text-center font-mono text-xs">{conversions}</Td>
+                          <Td className="text-center font-mono text-xs">
+                            {conversions}
+                            <MiniProgressBar target={tMap['conversions']} />
+                          </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {convRate !== null ? `${convRate}%` : '—'}
                           </Td>
                           <Td className="text-center">
                             <p className="font-black text-brand-primary text-sm">{leads.toLocaleString()}</p>
+                            <MiniProgressBar target={tMap['positive leads']} />
                           </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-brand-primary">
                             {leadRate !== null ? `${leadRate}%` : '—'}
@@ -709,16 +791,25 @@ const PerformanceAnalytics = ({
                       const convRate = visits > 0 ? Math.round((conversions / visits) * 100) : null;
                       const leadRate = visits > 0 ? Math.round((leads / visits) * 100) : null;
 
+                      const tMap = businessTargetMap[row.business_id] || {};
+
                       return (
                         <Tr key={row.business_id} className="hover:bg-brand-primary/[0.03] transition-colors">
                           <Td><p className="font-bold text-content-primary text-xs">{row.business_name}</p></Td>
-                          <Td className="text-center font-mono text-xs">{visits}</Td>
-                          <Td className="text-center font-mono text-xs">{conversions}</Td>
+                          <Td className="text-center font-mono text-xs">
+                            {visits}
+                            <MiniProgressBar target={tMap['visits made']} />
+                          </Td>
+                          <Td className="text-center font-mono text-xs">
+                            {conversions}
+                            <MiniProgressBar target={tMap['conversions']} />
+                          </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {convRate !== null ? `${convRate}%` : '—'}
                           </Td>
                           <Td className="text-center">
                             <p className="font-black text-brand-primary text-sm">{leads.toLocaleString()}</p>
+                            <MiniProgressBar target={tMap['positive leads']} />
                           </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-brand-primary">
                             {leadRate !== null ? `${leadRate}%` : '—'}

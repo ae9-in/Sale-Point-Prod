@@ -112,9 +112,10 @@ const getTargetSummary = async (req, res, next) => {
         WHERE er.employee_id = $1 AND er.business_id = $2
         AND er.report_date >= $3 AND er.report_date <= $4
         AND ff.field_type = 'number'
+        AND ff.field_name = $5
         AND ra.value ~ '^[0-9]+$'
       `;
-      const progRes = await query(sql, [id, t.business_id, t.start_date, t.end_date]);
+      const progRes = await query(sql, [id, t.business_id, t.start_date, t.end_date, t.target_name]);
       t.progress = parseInt(progRes.rows[0].progress || 0, 10);
     }
 

@@ -1,6 +1,100 @@
 const { query } = require('../config/db');
 const { successResponse } = require('../utils/apiResponse');
 
+const getTargetsProgress = async (req, res, next) => {
+  try {
+    const { date, fromDate, toDate, month, year, week, locationId, businessId } = req.query;
+    
+    const conditions = [];
+    const params = [];
+    let paramIndex = 1;
+
+    if (date) {
+      conditions.push(`t.start_date <= $${paramIndex} AND t.end_date >= $${paramIndex}`);
+      params.push(date);
+      paramIndex++;
+    }
+    if (fromDate) {
+      conditions.push(`t.start_date >= $${paramIndex}`);
+      params.push(fromDate);
+      paramIndex++;
+    }
+    if (toDate) {
+      conditions.push(`t.start_date <= $${paramIndex}`);
+      params.push(toDate);
+      paramIndex++;
+    }
+    if (month) {
+      conditions.push(`EXTRACT(MONTH FROM t.start_date) = $${paramIndex}`);
+      params.push(Number(month));
+      paramIndex++;
+    }
+    if (year) {
+      conditions.push(`EXTRACT(YEAR FROM t.start_date) = $${paramIndex}`);
+      params.push(Number(year));
+      paramIndex++;
+    }
+    if (week) {
+      conditions.push(`EXTRACT(WEEK FROM t.start_date) = $${paramIndex}`);
+      params.push(Number(week));
+      paramIndex++;
+    }
+
+    let dateWhere = conditions.length > 0 ? ' AND ' + conditions.join(' AND ') : '';
+
+    let sql = `
+      WITH target_progress AS (
+        SELECT 
+          t.id, t.employee_id, t.business_id, t.target_name, 
+          t.start_date, t.end_date,
+          CAST(t.target_value AS INTEGER) as target_value,
+          COALESCE(
+            (SELECT SUM(CAST(ra.value AS INTEGER))
+             FROM report_answers ra
+             JOIN form_fields ff ON ra.field_id = ff.id
+             JOIN employee_reports er ON ra.report_id = er.id
+             WHERE er.employee_id = t.employee_id 
+               AND er.business_id = t.business_id
+               AND er.report_date >= t.start_date 
+               AND er.report_date <= t.end_date
+               AND ff.field_type = 'number'
+               AND ff.field_name = t.target_name
+               AND ra.value ~ '^[0-9]+$'
+            ), 0
+          ) as progress
+        FROM targets t
+        WHERE 1=1 ${dateWhere}
+      )
+      SELECT 
+        tp.employee_id, u.name as employee_name, u.email as employee_email,
+        tp.business_id, b.business_name,
+        tp.target_name,
+        SUM(tp.target_value) as target_value,
+        SUM(tp.progress) as progress,
+        MIN(tp.start_date) as start_date,
+        MAX(tp.end_date) as end_date
+      FROM target_progress tp
+      JOIN users u ON tp.employee_id = u.id
+      JOIN businesses b ON tp.business_id = b.id
+      WHERE u.status = 'APPROVED' AND u.role = 'EMPLOYEE'
+    `;
+
+    if (locationId) {
+      sql += ` AND u.location_id = $${paramIndex++}`;
+      params.push(locationId);
+    }
+    if (businessId) {
+      sql += ` AND tp.business_id = $${paramIndex++}`;
+      params.push(businessId);
+    }
+
+    sql += ` GROUP BY tp.employee_id, u.name, u.email, tp.business_id, b.business_name, tp.target_name`;
+
+    const targetsRes = await query(sql, params);
+    return successResponse(res, targetsRes.rows, 'Target progress fetched');
+  } catch (err) { next(err); }
+};
+
 const buildDateWhere = (params, filters = {}) => {
   const conditions = [];
   let paramIndex = params.length + 1;
@@ -462,4 +556,10 @@ const getSubmissionStatus = async (req, res, next) => {
   }
 };
 
-module.exports = { getOverview, getLeaderboard, getPerformance, getSubmissionStatus };
+module.exports = {
+  getOverview,
+  getLeaderboard,
+  getPerformance,
+  getSubmissionStatus,
+  getTargetsProgress
+};
