@@ -2,11 +2,11 @@ import { useEffect, useState, useMemo } from 'react';
 import axios from '../../api/axiosInstance';
 import Spinner from '../ui/Spinner';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../ui/Table';
-import { Clock, CheckCircle2, AlertTriangle, AlertCircle, Calendar, User, Filter } from 'lucide-react';
+import { Clock, CheckCircle2, AlertTriangle, AlertCircle, Calendar, User, Filter, Download } from 'lucide-react';
 import Input from '../ui/Input';
 import { exportToPdf, exportToJpg } from '../../utils/exportUtils';
 import Button from '../ui/Button';
-import { Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const currentYear = new Date().getFullYear();
 
@@ -151,6 +151,19 @@ const SubmissionStatusTracker = ({ businessId, locationId }) => {
     return { totalSlots, submitted, onTime, late, missing, pending };
   }, [filteredMatrix]);
 
+  const overdueMatrix = useMemo(() => {
+    if (!filteredMatrix) return [];
+    return filteredMatrix
+      .map(row => {
+        const hasOverdue = row.timings.some(t => t.status === 'MISSING');
+        return {
+          ...row,
+          hasOverdue
+        };
+      })
+      .filter(row => row.hasOverdue);
+  }, [filteredMatrix]);
+
   const getPercentage = (value, total) => {
     if (total === 0) return 0;
     return Math.round((value / total) * 100);
@@ -171,6 +184,50 @@ const SubmissionStatusTracker = ({ businessId, locationId }) => {
       `Real-time tracking of configured slots for Period: ${filters.period}`,
       'tracker-matrix-container',
       'hourly-submission-tracker.jpg'
+    );
+  };
+
+  const exportOverdueExcel = () => {
+    if (!data || !data.timings) return;
+    const headers = ['Date', 'Employee Name', 'Email', ...data.timings.map(t => t.timing_name)];
+    const rows = overdueMatrix.map(row => [
+      new Date(row.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }),
+      row.employeeName,
+      row.employeeEmail || '—',
+      ...row.timings.map(t => t.status === 'MISSING' ? 'OVERDUE' : '')
+    ]);
+
+    const worksheetData = [headers, ...rows];
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+    
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 15 }, // Date
+      { wch: 20 }, // Employee Name
+      { wch: 25 }, // Email
+      ...data.timings.map(() => ({ wch: 14 })) // Timings
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Overdue Submissions');
+    XLSX.writeFile(workbook, `overdue-members-${filters.period}.xlsx`);
+  };
+
+  const exportOverduePdf = () => {
+    exportToPdf(
+      'Overdue Submissions Watchdog Ledger',
+      `Watchdog tracker of missed report slots for Period: ${filters.period}`,
+      'overdue-list-container',
+      'overdue-submissions-report.pdf'
+    );
+  };
+
+  const exportOverdueJpg = () => {
+    exportToJpg(
+      'Overdue Submissions Watchdog Ledger',
+      `Watchdog tracker of missed report slots for Period: ${filters.period}`,
+      'overdue-list-container',
+      'overdue-submissions-report.jpg'
     );
   };
 
@@ -399,6 +456,114 @@ const SubmissionStatusTracker = ({ businessId, locationId }) => {
               </Tbody>
             </Table>
           </div>
+
+          {/* Integrated Overdue Members Watchdog Ledger */}
+          <div className="border-t border-dark-border/40 my-8 pt-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-content-primary flex items-center gap-2">
+                  <AlertCircle size={14} className="text-brand-danger animate-pulse" />
+                  Overdue Submissions Ledger
+                </h3>
+                <p className="text-[11px] text-content-secondary mt-0.5">
+                  Active watchdog listing members with missed report deadlines for configured slots
+                </p>
+              </div>
+              <div className="flex items-center gap-2" data-html2canvas-ignore="true">
+                <Button 
+                  variant="secondary" 
+                  className="h-[28px] text-[9px] font-black uppercase tracking-wider px-2.5 flex items-center gap-1"
+                  onClick={exportOverdueExcel}
+                  disabled={overdueMatrix.length === 0}
+                >
+                  <Download size={11} />
+                  Excel
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  className="h-[28px] text-[9px] font-black uppercase tracking-wider px-2.5 flex items-center gap-1"
+                  onClick={exportOverduePdf}
+                  disabled={overdueMatrix.length === 0}
+                >
+                  <Download size={11} />
+                  PDF
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  className="h-[28px] text-[9px] font-black uppercase tracking-wider px-2.5 flex items-center gap-1"
+                  onClick={exportOverdueJpg}
+                  disabled={overdueMatrix.length === 0}
+                >
+                  <Download size={11} />
+                  JPG
+                </Button>
+              </div>
+            </div>
+
+            {overdueMatrix.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 space-y-2 text-center bg-dark-bg/20 rounded-xl border border-dark-border/20">
+                <CheckCircle2 className="text-brand-success h-7 w-7 shrink-0" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-brand-success">
+                  All Members Up To Date
+                </p>
+                <p className="text-[9px] text-content-muted">
+                  No overdue submissions found for this business.
+                </p>
+              </div>
+            ) : (
+              <div id="overdue-list-container" className="overflow-x-auto rounded-lg border border-dark-border/50 bg-dark-surface/10">
+                <Table>
+                  <Thead>
+                    <Tr className="bg-dark-bg/30">
+                      <Th className="text-[10px] uppercase tracking-wider font-extrabold w-[160px] min-w-[160px] sticky left-0 bg-dark-surface z-10">Employee</Th>
+                      {filters.period !== 'day' && (
+                        <Th className="text-[10px] uppercase tracking-wider font-extrabold text-center min-w-[100px]">Date</Th>
+                      )}
+                      {data.timings.map(t => (
+                        <Th key={t.id} className="text-[10px] uppercase tracking-wider font-extrabold text-center min-w-[140px]">
+                          {t.timing_name}
+                        </Th>
+                      ))}
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {overdueMatrix.map(row => (
+                      <Tr key={`${row.employeeId}-${row.date}`} className="hover:bg-brand-primary/[0.02] transition-colors border-b border-dark-border/30 last:border-b-0">
+                        <Td className="font-bold text-content-primary text-xs sticky left-0 bg-dark-surface z-10 border-r border-dark-border/40">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="truncate max-w-[140px]" title={row.employeeName}>{row.employeeName}</span>
+                            {row.employeeEmail && (
+                              <span className="text-[9px] text-content-muted font-normal truncate max-w-[140px]" title={row.employeeEmail}>
+                                {row.employeeEmail}
+                              </span>
+                            )}
+                          </div>
+                        </Td>
+                        {filters.period !== 'day' && (
+                          <Td className="text-center font-semibold text-[11px] text-content-secondary">
+                            {new Date(row.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </Td>
+                        )}
+                        {row.timings.map(t => (
+                          <Td key={t.timingId} className="text-center py-2.5">
+                            {t.status === 'MISSING' ? (
+                              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-black tracking-wide bg-brand-danger/10 text-brand-danger border-brand-danger/25 animate-pulse">
+                                <AlertCircle size={10} className="shrink-0" />
+                                <span>Overdue</span>
+                              </div>
+                            ) : (
+                              <span className="text-content-muted/20">—</span>
+                            )}
+                          </Td>
+                        ))}
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </div>
+            )}
+          </div>
+
           </div>
         </>
       )}
