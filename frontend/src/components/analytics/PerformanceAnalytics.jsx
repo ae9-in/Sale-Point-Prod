@@ -696,8 +696,12 @@ const PerformanceAnalytics = ({
                               const tCalls = tMap['calls made'];
                               const tAnswered = tMap['answered calls'];
                               let targetAnsPct = null;
-                              if (tCalls && tAnswered && tCalls.target_value > 0 && tAnswered.target_value > 0) {
-                                targetAnsPct = Math.round((tAnswered.target_value / tCalls.target_value) * 100);
+                              if (tAnswered && tAnswered.target_value > 0) {
+                                if (tCalls && tCalls.target_value > 0) {
+                                  targetAnsPct = Math.round((tAnswered.target_value / tCalls.target_value) * 100);
+                                } else {
+                                  targetAnsPct = tAnswered.target_value; // fallback assuming base of 100 calls
+                                }
                               }
                               return (
                                 <MiniPercentProgressBar 
@@ -803,8 +807,12 @@ const PerformanceAnalytics = ({
                               const tCalls = tMap['calls made'];
                               const tAnswered = tMap['answered calls'];
                               let targetAnsPct = null;
-                              if (tCalls && tAnswered && tCalls.target_value > 0 && tAnswered.target_value > 0) {
-                                targetAnsPct = Math.round((tAnswered.target_value / tCalls.target_value) * 100);
+                              if (tAnswered && tAnswered.target_value > 0) {
+                                if (tCalls && tCalls.target_value > 0) {
+                                  targetAnsPct = Math.round((tAnswered.target_value / tCalls.target_value) * 100);
+                                } else {
+                                  targetAnsPct = tAnswered.target_value; // fallback assuming base of 100 calls
+                                }
                               }
                               return (
                                 <MiniPercentProgressBar 
