@@ -155,6 +155,26 @@ const MiniProgressBar = ({ target }) => {
   );
 };
 
+const MiniPercentProgressBar = ({ progressPct, targetPct }) => {
+  if (progressPct === null || targetPct === null || targetPct <= 0) return null;
+  const percent = (progressPct / targetPct) * 100;
+  const clamped = percent > 100 ? 100 : percent.toFixed(0);
+  const isSuccess = clamped >= 100;
+  const isWarning = clamped > 0 && clamped < 100;
+
+  return (
+    <div className="mt-1 flex flex-col gap-0.5 w-16 mx-auto animate-fade-in">
+      <div className="h-1 bg-dark-surface border border-dark-border/50 rounded-full overflow-hidden">
+        <div 
+          className={`h-full rounded-full transition-all duration-500 ${isSuccess ? 'bg-brand-success shadow-[0_0_8px_rgba(34,197,94,0.5)]' : isWarning ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.3)]' : 'bg-content-muted'}`}
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
+      <span className="text-[8px] font-bold text-content-muted/80 text-right">{progressPct}%/{targetPct}%</span>
+    </div>
+  );
+};
+
 const PerformanceAnalytics = ({
   title = 'Performance Intelligence',
   employees = [],
@@ -672,6 +692,20 @@ const PerformanceAnalytics = ({
                           </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {answerRate !== null ? `${answerRate}%` : '—'}
+                            {(() => {
+                              const tCalls = tMap['calls made'];
+                              const tAnswered = tMap['answered calls'];
+                              let targetAnsPct = null;
+                              if (tCalls && tAnswered && tCalls.target_value > 0 && tAnswered.target_value > 0) {
+                                targetAnsPct = Math.round((tAnswered.target_value / tCalls.target_value) * 100);
+                              }
+                              return (
+                                <MiniPercentProgressBar 
+                                  progressPct={answerRate} 
+                                  targetPct={targetAnsPct} 
+                                />
+                              );
+                            })()}
                           </Td>
                           <Td className="text-center font-mono text-xs">
                             {conversions}
@@ -765,6 +799,20 @@ const PerformanceAnalytics = ({
                           </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {answerRate !== null ? `${answerRate}%` : '—'}
+                            {(() => {
+                              const tCalls = tMap['calls made'];
+                              const tAnswered = tMap['answered calls'];
+                              let targetAnsPct = null;
+                              if (tCalls && tAnswered && tCalls.target_value > 0 && tAnswered.target_value > 0) {
+                                targetAnsPct = Math.round((tAnswered.target_value / tCalls.target_value) * 100);
+                              }
+                              return (
+                                <MiniPercentProgressBar 
+                                  progressPct={answerRate} 
+                                  targetPct={targetAnsPct} 
+                                />
+                              );
+                            })()}
                           </Td>
                           <Td className="text-center font-mono text-xs">
                             {conversions}
