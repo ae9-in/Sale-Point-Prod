@@ -3,13 +3,18 @@ const { successResponse, errorResponse } = require('../utils/apiResponse');
 
 const getDefaultTargets = async (req, res, next) => {
   try {
-    const result = await query(`
+    const { includeEmployees } = req.query;
+    let sql = `
       SELECT dt.*, b.business_name 
       FROM default_targets dt
       LEFT JOIN businesses b ON dt.business_id = b.id
-      WHERE dt.employee_id IS NULL
-      ORDER BY dt.created_at DESC
-    `);
+    `;
+    if (includeEmployees !== 'true') {
+      sql += ' WHERE dt.employee_id IS NULL';
+    }
+    sql += ' ORDER BY dt.created_at DESC';
+
+    const result = await query(sql);
     return successResponse(res, result.rows, 'Default targets fetched');
   } catch (err) { next(err); }
 };

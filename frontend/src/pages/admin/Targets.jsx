@@ -32,7 +32,7 @@ const MiniProgress = ({ progress, target }) => {
 };
 
 // ─── Excel cell ───────────────────────────────────────────────────────
-const Cell = ({ value, savedValue, yesterdayValue, progress, onChange, onDelete, disabled }) => {
+const Cell = ({ value, savedValue, progress, onChange, onDelete, disabled }) => {
   const isDirty = String(value ?? '') !== String(savedValue ?? '');
   const hasSaved = savedValue !== undefined && savedValue !== null && savedValue !== '';
 
@@ -63,14 +63,6 @@ const Cell = ({ value, savedValue, yesterdayValue, progress, onChange, onDelete,
           </button>
         )}
       </div>
-      
-      {/* Yesterday's Target Reference */}
-      {yesterdayValue !== undefined && yesterdayValue !== null && yesterdayValue !== '' && (
-        <div className="mt-1 px-1.5 py-0.5 rounded bg-dark-bg/40 border border-dark-border/40 text-[9px] text-content-muted/80 text-center font-mono select-none">
-          Yesterday: <span className="text-brand-primary font-bold">{yesterdayValue}</span>
-        </div>
-      )}
-
       {hasSaved && !isDirty && (
         <div className="px-1">
           <MiniProgress progress={progress || 0} target={Number(savedValue)} />
@@ -100,7 +92,6 @@ const Targets = () => {
   // Grid Data
   const [employees, setEmployees] = useState([]);
   const [savedTargets, setSavedTargets] = useState([]);
-  const [yesterdayTargets, setYesterdayTargets] = useState([]);
   const [gridData, setGridData] = useState({});
   const [columns, setColumns] = useState([]);
   const [selectedEmpIds, setSelectedEmpIds] = useState(new Set());
@@ -131,7 +122,7 @@ const Targets = () => {
       setLoadingBiz(true);
       const [bizRes, defTargetsRes] = await Promise.all([
         axios.get('/businesses'),
-        axios.get('/default-targets')
+        axios.get('/default-targets?includeEmployees=true')
       ]);
       const bizList = bizRes.data.data || [];
       setBusinesses(bizList);
@@ -150,7 +141,7 @@ const Targets = () => {
   // Helper to re-fetch default targets if modified in the config tab
   const reloadDefaultTargets = async () => {
     try {
-      const res = await axios.get('/default-targets');
+      const res = await axios.get('/default-targets?includeEmployees=true');
       setGlobalDefaultTargets(res.data.data || []);
     } catch {}
   };
@@ -171,37 +162,43 @@ const Targets = () => {
     if (!selectedBusiness?.id || !startDate || !endDate) return;
     
     const isAll = selectedBusiness.id === 'all';
-    const yesterdayDate = new Date(new Date(startDate).getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     try {
       setLoadingGrid(true);
       
       if (!isAll) {
         // Specific Business
-        // Fetch today's and yesterday's targets in parallel
-        const [res, yesterdayRes] = await Promise.all([
-          axios.get(`/targets/business/${selectedBusiness.id}`, {
-            params: { startDate, endDate }
-          }),
-          axios.get(`/targets/business/${selectedBusiness.id}`, {
-            params: { startDate: yesterdayDate, endDate: yesterdayDate }
-          }).catch(() => ({ data: { data: { targets: [] } } }))
-        ]);
-
+        const res = await axios.get(`/targets/business/${selectedBusiness.id}`, {
+          params: { startDate, endDate }
+        });
         const { employees: emps, targets } = res.data.data;
-        const yesterdayTargetsList = yesterdayRes.data?.data?.targets || [];
-
         setEmployees(emps);
         setSavedTargets(targets);
-        setYesterdayTargets(yesterdayTargetsList);
 
         const grid = {};
         for (const emp of emps) {
           grid[emp.id] = {};
-          // Pre-fill with default targets
-          for (const dt of globalDefaultTargets) {
-            if (!dt.business_id || dt.business_id === selectedBusiness.id) {
-              grid[emp.id][dt.target_name] = String(dt.target_value);
+          // Pre-fill with default targets using precedence: Employee Override > Business Default > Global Default
+          for (const metric of columns) {
+            const empDefault = globalDefaultTargets.find(dt => 
+              dt.employee_id === emp.id && 
+              dt.business_id === selectedBusiness.id && 
+              dt.target_name === metric
+            );
+            const bizDefault = globalDefaultTargets.find(dt => 
+              !dt.employee_id && 
+              dt.business_id === selectedBusiness.id && 
+              dt.target_name === metric
+            );
+            const globalDefault = globalDefaultTargets.find(dt => 
+              !dt.employee_id && 
+              !dt.business_id && 
+              dt.target_name === metric
+            );
+
+            const val = empDefault || bizDefault || globalDefault;
+            if (val) {
+              grid[emp.id][metric] = String(val.target_value);
             }
           }
         }
@@ -241,18 +238,34 @@ const Targets = () => {
         // Build business mappings and collect matching targets
         const bizMap = {};
         const consolidatedSavedTargets = [];
-        const consolidatedYesterdayTargets = [];
         const grid = {};
 
         for (const d of details) {
           bizMap[d.empId] = d.businesses;
           grid[d.empId] = {};
 
-          // Pre-fill with default targets
-          for (const dt of globalDefaultTargets) {
-            const appliesToEmp = !dt.business_id || d.businesses.some(b => b.id === dt.business_id);
-            if (appliesToEmp) {
-              grid[d.empId][dt.target_name] = String(dt.target_value);
+          // Pre-fill with default targets using precedence: Employee Override > Business Default > Global Default
+          const empBusinesses = d.businesses;
+          for (const metric of columns) {
+            const empDefault = globalDefaultTargets.find(dt => 
+              dt.employee_id === d.empId && 
+              empBusinesses.some(b => b.id === dt.business_id) && 
+              dt.target_name === metric
+            );
+            const bizDefault = globalDefaultTargets.find(dt => 
+              !dt.employee_id && 
+              empBusinesses.some(b => b.id === dt.business_id) && 
+              dt.target_name === metric
+            );
+            const globalDefault = globalDefaultTargets.find(dt => 
+              !dt.employee_id && 
+              !dt.business_id && 
+              dt.target_name === metric
+            );
+
+            const val = empDefault || bizDefault || globalDefault;
+            if (val) {
+              grid[d.empId][metric] = String(val.target_value);
             }
           }
 
@@ -261,13 +274,6 @@ const Targets = () => {
             const sd = t.start_date ? t.start_date.slice(0, 10) : '';
             const ed = t.end_date ? t.end_date.slice(0, 10) : '';
             return sd === startDate && ed === endDate;
-          });
-
-          // Filter summary targets for yesterday
-          const matchedYesterday = d.targets.filter(t => {
-            const sd = t.start_date ? t.start_date.slice(0, 10) : '';
-            const ed = t.end_date ? t.end_date.slice(0, 10) : '';
-            return sd === yesterdayDate && ed === yesterdayDate;
           });
 
           // Consolidate values for the grid (group by target name)
@@ -282,15 +288,6 @@ const Targets = () => {
           const consolidatedList = Object.values(tempTargets);
           consolidatedSavedTargets.push(...consolidatedList);
 
-          // Consolidate yesterday's targets too
-          const tempYesterday = {};
-          for (const t of matchedYesterday) {
-            if (!tempYesterday[t.target_name]) {
-              tempYesterday[t.target_name] = { ...t };
-            }
-          }
-          consolidatedYesterdayTargets.push(...Object.values(tempYesterday));
-
           for (const t of consolidatedList) {
             grid[d.empId][t.target_name] = String(t.target_value);
           }
@@ -298,7 +295,6 @@ const Targets = () => {
 
         setEmployeeBusinessesMap(bizMap);
         setSavedTargets(consolidatedSavedTargets);
-        setYesterdayTargets(consolidatedYesterdayTargets);
         setGridData(grid);
         setSelectedEmpIds(new Set(emps.map(e => e.id)));
       }
@@ -319,42 +315,9 @@ const Targets = () => {
     return t ? String(t.target_value) : undefined;
   };
 
-  const getYesterdayValue = (employeeId, metric) => {
-    const t = yesterdayTargets.find(t => t.employee_id === employeeId && t.target_name === metric);
-    return t ? String(t.target_value) : undefined;
-  };
-
   const getProgress = (employeeId, metric) => {
     const t = savedTargets.find(t => t.employee_id === employeeId && t.target_name === metric);
     return t ? t.progress : 0;
-  };
-
-  const handleCopyYesterday = () => {
-    if (yesterdayTargets.length === 0) {
-      toast.error("No targets found for yesterday to copy");
-      return;
-    }
-
-    setGridData(prev => {
-      const next = { ...prev };
-      let copyCount = 0;
-      for (const empId of selectedEmpIds) {
-        if (!next[empId]) next[empId] = {};
-        for (const metric of columns) {
-          const yVal = getYesterdayValue(empId, metric);
-          if (yVal !== undefined) {
-            next[empId][metric] = yVal;
-            copyCount++;
-          }
-        }
-      }
-      if (copyCount === 0) {
-        toast.error("No yesterday's targets matched for the selected members");
-      } else {
-        toast.success("Copied yesterday's targets into the grid for checked members");
-      }
-      return next;
-    });
   };
 
   // Cell change handler
@@ -658,20 +621,9 @@ const Targets = () => {
             </div>
           </div>
 
-          <div className="min-w-fit flex items-center gap-2">
+          <div className="min-w-fit">
             <Button
-              variant="secondary"
-              className="h-10 text-[10px] font-black uppercase tracking-wider px-3 shrink-0 hover:bg-brand-primary hover:text-dark-bg hover:border-brand-primary"
-              onClick={handleCopyYesterday}
-              disabled={loadingGrid || yesterdayTargets.length === 0}
-              title="Pre-fill today's grid with yesterday's target values as unsaved edits"
-            >
-              <Copy size={12} className="mr-1.5 animate-pulse" />
-              Copy Yesterday
-            </Button>
-
-            <Button
-              className={`h-10 text-[10px] font-black uppercase tracking-wider px-3 shrink-0 ${isDirtyGrid ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-dark-bg' : ''}`}
+              className={`h-10 text-[10px] font-black uppercase tracking-wider px-4 shrink-0 ${isDirtyGrid ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-dark-bg' : ''}`}
               onClick={handleSaveGrid}
               disabled={saving || loadingGrid}
             >
@@ -723,7 +675,7 @@ const Targets = () => {
           columns={columns}
           activityType={activityType}
           onUpdate={reloadDefaultTargets}
-          globalDefaultTargets={globalDefaultTargets}
+          globalDefaultTargets={globalDefaultTargets.filter(dt => !dt.employee_id)}
         />
       )}
 
@@ -927,7 +879,6 @@ const Targets = () => {
                           <Cell
                             value={gridData[emp.id]?.[metric] ?? ''}
                             savedValue={getSavedValue(emp.id, metric)}
-                            yesterdayValue={getYesterdayValue(emp.id, metric)}
                             progress={getProgress(emp.id, metric)}
                             disabled={!isChecked}
                             onChange={val => handleCellChange(emp.id, metric, val)}
