@@ -616,6 +616,7 @@ const PerformanceAnalytics = ({
                         <Th className="text-[10px] uppercase tracking-wider text-center">Dialled</Th>
                         <Th className="text-[10px] uppercase tracking-wider text-center">Answered</Th>
                         <Th className="text-[10px] uppercase tracking-wider text-center">Ans. %</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center text-brand-secondary">Ans. Target %</Th>
                         <Th className="text-[10px] uppercase tracking-wider text-center">Conversions</Th>
                         <Th className="text-[10px] uppercase tracking-wider text-center">Conv. %</Th>
                       </>
@@ -638,6 +639,7 @@ const PerformanceAnalytics = ({
                         <Th className="text-[10px] uppercase tracking-wider text-center">Dialled</Th>
                         <Th className="text-[10px] uppercase tracking-wider text-center">Answered</Th>
                         <Th className="text-[10px] uppercase tracking-wider text-center">Ans. %</Th>
+                        <Th className="text-[10px] uppercase tracking-wider text-center text-brand-secondary">Ans. Target %</Th>
                         <Th className="text-[10px] uppercase tracking-wider text-center">Conversions</Th>
                         <Th className="text-[10px] uppercase tracking-wider text-center">Conv. %</Th>
                       </>
@@ -692,13 +694,22 @@ const PerformanceAnalytics = ({
                           </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {answerRate !== null ? `${answerRate}%` : '—'}
+                          </Td>
+                          <Td className="text-center font-mono text-xs font-bold text-brand-secondary">
                             {(() => {
                               const tAnswered = tMap['answered calls'];
+                              let targetAnsPct = null;
+                              if (tAnswered && tAnswered.target_value > 0) {
+                                targetAnsPct = Math.round((answered / tAnswered.target_value) * 100);
+                              }
                               return (
-                                <MiniPercentProgressBar 
-                                  progress={answered} 
-                                  targetValue={tAnswered?.target_value} 
-                                />
+                                <>
+                                  {targetAnsPct !== null ? `${targetAnsPct}%` : '—'}
+                                  <MiniPercentProgressBar 
+                                    progress={answered} 
+                                    targetValue={tAnswered?.target_value} 
+                                  />
+                                </>
                               );
                             })()}
                           </Td>
@@ -794,13 +805,22 @@ const PerformanceAnalytics = ({
                           </Td>
                           <Td className="text-center font-mono text-xs font-semibold text-content-secondary">
                             {answerRate !== null ? `${answerRate}%` : '—'}
+                          </Td>
+                          <Td className="text-center font-mono text-xs font-bold text-brand-secondary">
                             {(() => {
                               const tAnswered = tMap['answered calls'];
+                              let targetAnsPct = null;
+                              if (tAnswered && tAnswered.target_value > 0) {
+                                targetAnsPct = Math.round((answered / tAnswered.target_value) * 100);
+                              }
                               return (
-                                <MiniPercentProgressBar 
-                                  progress={answered} 
-                                  targetValue={tAnswered?.target_value} 
-                                />
+                                <>
+                                  {targetAnsPct !== null ? `${targetAnsPct}%` : '—'}
+                                  <MiniPercentProgressBar 
+                                    progress={answered} 
+                                    targetValue={tAnswered?.target_value} 
+                                  />
+                                </>
                               );
                             })()}
                           </Td>
