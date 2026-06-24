@@ -156,7 +156,7 @@ const MiniProgressBar = ({ target }) => {
 };
 
 const MiniPercentProgressBar = ({ progress, targetValue }) => {
-  if (progress === null || targetValue === null || targetValue <= 0) return null;
+  if (progress === undefined || progress === null || !targetValue || targetValue <= 0) return null;
   const percent = (progress / targetValue) * 100;
   const clamped = percent > 100 ? 100 : percent.toFixed(0);
   const isSuccess = clamped >= 100;
