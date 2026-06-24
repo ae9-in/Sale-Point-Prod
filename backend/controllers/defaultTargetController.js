@@ -7,6 +7,7 @@ const getDefaultTargets = async (req, res, next) => {
       SELECT dt.*, b.business_name 
       FROM default_targets dt
       LEFT JOIN businesses b ON dt.business_id = b.id
+      WHERE dt.employee_id IS NULL
       ORDER BY dt.created_at DESC
     `);
     return successResponse(res, result.rows, 'Default targets fetched');

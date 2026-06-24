@@ -32,7 +32,7 @@ const MiniProgress = ({ progress, target }) => {
 };
 
 // ─── Excel cell ───────────────────────────────────────────────────────
-const Cell = ({ value, savedValue, progress, onChange, onDelete, disabled }) => {
+const Cell = ({ value, savedValue, yesterdayValue, progress, onChange, onDelete, disabled }) => {
   const isDirty = String(value ?? '') !== String(savedValue ?? '');
   const hasSaved = savedValue !== undefined && savedValue !== null && savedValue !== '';
 
@@ -63,6 +63,14 @@ const Cell = ({ value, savedValue, progress, onChange, onDelete, disabled }) => 
           </button>
         )}
       </div>
+      
+      {/* Yesterday's Target Reference */}
+      {yesterdayValue !== undefined && yesterdayValue !== null && yesterdayValue !== '' && (
+        <div className="mt-1 px-1.5 py-0.5 rounded bg-dark-bg/40 border border-dark-border/40 text-[9px] text-content-muted/80 text-center font-mono select-none">
+          Yesterday: <span className="text-brand-primary font-bold">{yesterdayValue}</span>
+        </div>
+      )}
+
       {hasSaved && !isDirty && (
         <div className="px-1">
           <MiniProgress progress={progress || 0} target={Number(savedValue)} />
@@ -92,6 +100,7 @@ const Targets = () => {
   // Grid Data
   const [employees, setEmployees] = useState([]);
   const [savedTargets, setSavedTargets] = useState([]);
+  const [yesterdayTargets, setYesterdayTargets] = useState([]);
   const [gridData, setGridData] = useState({});
   const [columns, setColumns] = useState([]);
   const [selectedEmpIds, setSelectedEmpIds] = useState(new Set());
@@ -162,18 +171,29 @@ const Targets = () => {
     if (!selectedBusiness?.id || !startDate || !endDate) return;
     
     const isAll = selectedBusiness.id === 'all';
+    const yesterdayDate = new Date(new Date(startDate).getTime() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     try {
       setLoadingGrid(true);
       
       if (!isAll) {
         // Specific Business
-        const res = await axios.get(`/targets/business/${selectedBusiness.id}`, {
-          params: { startDate, endDate }
-        });
+        // Fetch today's and yesterday's targets in parallel
+        const [res, yesterdayRes] = await Promise.all([
+          axios.get(`/targets/business/${selectedBusiness.id}`, {
+            params: { startDate, endDate }
+          }),
+          axios.get(`/targets/business/${selectedBusiness.id}`, {
+            params: { startDate: yesterdayDate, endDate: yesterdayDate }
+          }).catch(() => ({ data: { data: { targets: [] } } }))
+        ]);
+
         const { employees: emps, targets } = res.data.data;
+        const yesterdayTargetsList = yesterdayRes.data?.data?.targets || [];
+
         setEmployees(emps);
         setSavedTargets(targets);
+        setYesterdayTargets(yesterdayTargetsList);
 
         const grid = {};
         for (const emp of emps) {
@@ -221,6 +241,7 @@ const Targets = () => {
         // Build business mappings and collect matching targets
         const bizMap = {};
         const consolidatedSavedTargets = [];
+        const consolidatedYesterdayTargets = [];
         const grid = {};
 
         for (const d of details) {
@@ -242,9 +263,15 @@ const Targets = () => {
             return sd === startDate && ed === endDate;
           });
 
+          // Filter summary targets for yesterday
+          const matchedYesterday = d.targets.filter(t => {
+            const sd = t.start_date ? t.start_date.slice(0, 10) : '';
+            const ed = t.end_date ? t.end_date.slice(0, 10) : '';
+            return sd === yesterdayDate && ed === yesterdayDate;
+          });
+
           // Consolidate values for the grid (group by target name)
-          // If targets exist across multiple businesses, we sum progress, but show the target value
-          const tempTargets = {}; // { [target_name]: targetObject }
+          const tempTargets = {};
           for (const t of matched) {
             if (!tempTargets[t.target_name]) {
               tempTargets[t.target_name] = { ...t, progress: 0 };
@@ -255,6 +282,15 @@ const Targets = () => {
           const consolidatedList = Object.values(tempTargets);
           consolidatedSavedTargets.push(...consolidatedList);
 
+          // Consolidate yesterday's targets too
+          const tempYesterday = {};
+          for (const t of matchedYesterday) {
+            if (!tempYesterday[t.target_name]) {
+              tempYesterday[t.target_name] = { ...t };
+            }
+          }
+          consolidatedYesterdayTargets.push(...Object.values(tempYesterday));
+
           for (const t of consolidatedList) {
             grid[d.empId][t.target_name] = String(t.target_value);
           }
@@ -262,6 +298,7 @@ const Targets = () => {
 
         setEmployeeBusinessesMap(bizMap);
         setSavedTargets(consolidatedSavedTargets);
+        setYesterdayTargets(consolidatedYesterdayTargets);
         setGridData(grid);
         setSelectedEmpIds(new Set(emps.map(e => e.id)));
       }
@@ -282,9 +319,42 @@ const Targets = () => {
     return t ? String(t.target_value) : undefined;
   };
 
+  const getYesterdayValue = (employeeId, metric) => {
+    const t = yesterdayTargets.find(t => t.employee_id === employeeId && t.target_name === metric);
+    return t ? String(t.target_value) : undefined;
+  };
+
   const getProgress = (employeeId, metric) => {
     const t = savedTargets.find(t => t.employee_id === employeeId && t.target_name === metric);
     return t ? t.progress : 0;
+  };
+
+  const handleCopyYesterday = () => {
+    if (yesterdayTargets.length === 0) {
+      toast.error("No targets found for yesterday to copy");
+      return;
+    }
+
+    setGridData(prev => {
+      const next = { ...prev };
+      let copyCount = 0;
+      for (const empId of selectedEmpIds) {
+        if (!next[empId]) next[empId] = {};
+        for (const metric of columns) {
+          const yVal = getYesterdayValue(empId, metric);
+          if (yVal !== undefined) {
+            next[empId][metric] = yVal;
+            copyCount++;
+          }
+        }
+      }
+      if (copyCount === 0) {
+        toast.error("No yesterday's targets matched for the selected members");
+      } else {
+        toast.success("Copied yesterday's targets into the grid for checked members");
+      }
+      return next;
+    });
   };
 
   // Cell change handler
@@ -536,6 +606,24 @@ const Targets = () => {
             )}
           </div>
 
+          {/* Target Date Picker */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1 flex items-center gap-1">
+              <Calendar size={10} className="text-brand-primary" />
+              Target Date
+            </label>
+            <input
+              type="date"
+              className="w-full bg-dark-bg border border-dark-border rounded-lg px-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10 font-bold cursor-pointer font-mono"
+              value={startDate}
+              onChange={(e) => {
+                const date = e.target.value;
+                setStartDate(date);
+                setEndDate(date);
+              }}
+            />
+          </div>
+
           {/* Activity Type Dropdown */}
           <div>
             <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1 flex items-center gap-1">
@@ -552,14 +640,43 @@ const Targets = () => {
             </select>
           </div>
 
-          <div className="min-w-fit">
+          {/* Search Members Bar */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-content-muted mb-1.5 block ml-1 flex items-center gap-1">
+              <Search size={10} className="text-brand-primary" />
+              Search Members
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search name or email..."
+                className="w-full bg-dark-bg border border-dark-border rounded-lg pl-8 pr-3 py-2 text-sm text-content-primary outline-none focus:border-brand-primary transition-colors h-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <Search className="absolute left-2.5 top-3.5 text-content-muted" size={12} />
+            </div>
+          </div>
+
+          <div className="min-w-fit flex items-center gap-2">
             <Button
-              className={`h-10 text-[10px] font-black uppercase tracking-wider px-4 shrink-0 ${isDirtyGrid ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-dark-bg' : ''}`}
+              variant="secondary"
+              className="h-10 text-[10px] font-black uppercase tracking-wider px-3 shrink-0 hover:bg-brand-primary hover:text-dark-bg hover:border-brand-primary"
+              onClick={handleCopyYesterday}
+              disabled={loadingGrid || yesterdayTargets.length === 0}
+              title="Pre-fill today's grid with yesterday's target values as unsaved edits"
+            >
+              <Copy size={12} className="mr-1.5 animate-pulse" />
+              Copy Yesterday
+            </Button>
+
+            <Button
+              className={`h-10 text-[10px] font-black uppercase tracking-wider px-3 shrink-0 ${isDirtyGrid ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-dark-bg' : ''}`}
               onClick={handleSaveGrid}
               disabled={saving || loadingGrid}
             >
               {saving ? <Spinner size="sm" className="mr-1.5" /> : <Save size={12} className="mr-1.5" />}
-              {saving ? 'Saving...' : 'Save & Send Targets'}
+              {saving ? 'Saving...' : 'Save & Send'}
             </Button>
           </div>
 
@@ -810,6 +927,7 @@ const Targets = () => {
                           <Cell
                             value={gridData[emp.id]?.[metric] ?? ''}
                             savedValue={getSavedValue(emp.id, metric)}
+                            yesterdayValue={getYesterdayValue(emp.id, metric)}
                             progress={getProgress(emp.id, metric)}
                             disabled={!isChecked}
                             onChange={val => handleCellChange(emp.id, metric, val)}

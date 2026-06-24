@@ -87,8 +87,21 @@ const updateTarget = async (req, res, next) => {
 const deleteTarget = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await query('DELETE FROM targets WHERE id = $1 RETURNING id', [id]);
-    if (result.rows.length === 0) return errorResponse(res, 'Target not found', 404);
+    
+    // Fetch target details before deleting to remove corresponding default target override
+    const targetRes = await query('SELECT employee_id, business_id, target_name FROM targets WHERE id = $1', [id]);
+    if (targetRes.rows.length === 0) return errorResponse(res, 'Target not found', 404);
+    const { employee_id, business_id, target_name } = targetRes.rows[0];
+
+    await query('DELETE FROM targets WHERE id = $1', [id]);
+
+    // Also delete the employee-specific default target override
+    await query(
+      `DELETE FROM default_targets 
+       WHERE employee_id = $1 AND business_id = $2 AND target_name = $3`,
+      [employee_id, business_id, target_name]
+    );
+
     return successResponse(res, null, 'Target deleted');
   } catch (err) { next(err); }
 };
@@ -222,6 +235,15 @@ const bulkUpsertTargets = async (req, res, next) => {
         [employeeId, businessId, targetName, val, startDate, endDate]
       );
       results.push(result.rows[0]);
+
+      // Automatically upsert into default_targets for this employee
+      await query(
+        `INSERT INTO default_targets (employee_id, business_id, target_name, target_value)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (employee_id, business_id, target_name) WHERE employee_id IS NOT NULL
+         DO UPDATE SET target_value = EXCLUDED.target_value`,
+        [employeeId, businessId, targetName, val]
+      );
     }
 
     return successResponse(res, results, 'Targets saved successfully', 201);
