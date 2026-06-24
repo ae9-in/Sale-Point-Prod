@@ -150,7 +150,7 @@ const MiniProgressBar = ({ target }) => {
           style={{ width: `${clamped}%` }}
         />
       </div>
-      <span className="text-[8px] font-bold text-content-muted/80 text-right">{target.progress}/{target.target_value}</span>
+      <span className="text-[8px] font-bold text-content-muted/80 text-right">{Math.round(percent)}%</span>
     </div>
   );
 };
@@ -170,7 +170,7 @@ const MiniPercentProgressBar = ({ progressPct, targetPct }) => {
           style={{ width: `${clamped}%` }}
         />
       </div>
-      <span className="text-[8px] font-bold text-content-muted/80 text-right">{progressPct}%/{targetPct}%</span>
+      <span className="text-[8px] font-bold text-content-muted/80 text-right">{Math.round(percent)}%</span>
     </div>
   );
 };
