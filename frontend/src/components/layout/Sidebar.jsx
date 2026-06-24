@@ -1,18 +1,15 @@
 import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useUiStore } from '../../store/uiStore';
-import { useBreakState } from '../../context/BreakContext';
 import { cn } from '../../utils/cn';
 import { 
   LayoutDashboard, Users, Building2, Target, 
-  FileText, LogOut, UserCircle, Coffee
+  FileText, LogOut, UserCircle
 } from 'lucide-react';
 
 const Sidebar = () => {
   const { user, logout } = useAuthStore();
   const { sidebarOpen, toggleSidebar } = useUiStore();
-  const breakState = useBreakState();
-  const activeBreak = breakState?.activeBreak;
   const isAdmin = user?.role === 'SUPER_ADMIN';
 
   const handleLogout = () => {
@@ -26,7 +23,6 @@ const Sidebar = () => {
     { name: 'Businesses', path: '/admin/businesses', icon: Building2 },
     { name: 'Targets', path: '/admin/targets', icon: Target },
     { name: 'Reports', path: '/admin/reports', icon: FileText },
-    { name: 'Break Dashboard', path: '/admin/breaks', icon: Coffee },
     { name: 'Profile Settings', path: '/admin/profile', icon: UserCircle },
   ];
 
@@ -36,7 +32,6 @@ const Sidebar = () => {
     { name: 'My Targets', path: '/employee/targets', icon: Target },
     { name: 'Submit Report', path: '/employee/submit-report', icon: FileText },
     { name: 'My Reports', path: '/employee/reports', icon: FileText },
-    { name: 'Break', path: '/break', icon: Coffee },
     { name: 'My Profile', path: '/employee/profile', icon: UserCircle },
   ];
 
@@ -86,14 +81,6 @@ const Sidebar = () => {
                 )}>
                   {link.name}
                 </span>
-
-                {/* Pulsing indicator for active breaks */}
-                {link.path === '/break' && activeBreak && (
-                  <span className={cn(
-                    "w-2 h-2 rounded-full bg-brand-warning animate-pulse shrink-0",
-                    !sidebarOpen && "lg:absolute lg:top-2 lg:right-2"
-                  )} aria-label="Break in progress" />
-                )}
               </>
             )}
           </NavLink>

@@ -26,7 +26,6 @@ const reportsRoutes = require('./routes/reports');
 const analyticsRoutes = require('./routes/analytics');
 const locationRoutes = require('./routes/locations');
 const doubtsRoutes = require('./routes/doubts');
-const breakRoutes = require('./routes/breaks');
 const defaultTargetsRoutes = require('./routes/defaultTargets');
 
 app.use('/api/auth', authRoutes);
@@ -37,7 +36,6 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/doubts', doubtsRoutes);
-app.use('/api/breaks', breakRoutes);
 app.use('/api/default-targets', defaultTargetsRoutes);
 
 // Basic route
