@@ -50,20 +50,31 @@ const TargetAnalyticsView = ({ businesses = [] }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    
-    const fetchTargets = async () => {
+    let isMounted = true;
+    const fetchTargets = async (isSilent = false) => {
       try {
-        setLoading(true);
+        if (!isSilent) setLoading(true);
         const res = await axios.get('/analytics/targets-progress', { params: buildParams(filters) });
-        setTargets(res.data.data || []);
+        if (isMounted) {
+          setTargets(res.data.data || []);
+        }
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (isMounted && !isSilent) setLoading(false);
       }
     };
 
     fetchTargets();
+
+    const interval = setInterval(() => {
+      fetchTargets(true);
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [filters]);
 
   const groupedTargets = useMemo(() => {

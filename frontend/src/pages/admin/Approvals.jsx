@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from '../../api/axiosInstance';
 import { Table, Thead, Tbody, Tr, Th, Td } from '../../components/ui/Table';
 import Button from '../../components/ui/Button';
@@ -10,19 +10,24 @@ const Approvals = () => {
   const [pendingUsers, setPendingUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchPending = async () => {
+  const fetchPending = async (isSilent = false) => {
     try {
+      if (!isSilent) setLoading(true);
       const res = await axios.get('/admin/users?status=PENDING');
       setPendingUsers(res.data.data);
     } catch (err) {
-      toast.error('Failed to load pending registrations');
+      if (!isSilent) toast.error('Failed to load pending registrations');
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchPending();
+    const interval = setInterval(() => {
+      fetchPending(true);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleApprove = async (id) => {

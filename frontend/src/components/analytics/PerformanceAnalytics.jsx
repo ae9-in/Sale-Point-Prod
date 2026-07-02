@@ -231,22 +231,34 @@ const PerformanceAnalytics = ({
   }, [initialEmployeeId, initialBusinessId]);
 
   useEffect(() => {
-    const fetchAnalytics = async () => {
+    let isMounted = true;
+    const fetchAnalytics = async (isSilent = false) => {
       try {
-        setLoading(true);
+        if (!isSilent) setLoading(true);
         const params = buildParams(filters);
         const [perfRes, targetsRes] = await Promise.all([
           axios.get('/analytics/performance', { params }),
           axios.get('/analytics/targets-progress', { params })
         ]);
-        setData(perfRes.data.data);
-        setTargets(targetsRes.data.data || []);
+        if (isMounted) {
+          setData(perfRes.data.data);
+          setTargets(targetsRes.data.data || []);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted && !isSilent) setLoading(false);
       }
     };
 
     fetchAnalytics();
+
+    const interval = setInterval(() => {
+      fetchAnalytics(true);
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [filters]);
 
   const targetMap = useMemo(() => {

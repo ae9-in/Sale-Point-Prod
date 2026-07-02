@@ -32,21 +32,36 @@ const Dashboard = () => {
   const [reports, setReports] = useState([]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    if (!user?.id) return;
+    let isMounted = true;
+    const fetchData = async (isSilent = false) => {
       try {
+        if (!isSilent) setLoading(true);
         const [targetsRes, businessesRes, reportsRes] = await Promise.all([
           axios.get(`/targets/employee/${user.id}/summary`),
           axios.get(`/admin/employees/${user.id}/businesses`),
           axios.get('/reports')
         ]);
-        setSummary(targetsRes.data.data);
-        setBusinesses(businessesRes.data.data);
-        setReports(reportsRes.data.data.slice(0, 5));
+        if (isMounted) {
+          setSummary(targetsRes.data.data);
+          setBusinesses(businessesRes.data.data);
+          setReports(reportsRes.data.data.slice(0, 5));
+        }
       } finally {
-        setLoading(false);
+        if (isMounted && !isSilent) setLoading(false);
       }
     };
-    if (user?.id) fetchData();
+
+    fetchData();
+
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [user]);
 
   if (loading) {

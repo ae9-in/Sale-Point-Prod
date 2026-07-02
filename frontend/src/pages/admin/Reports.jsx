@@ -35,6 +35,10 @@ const Reports = () => {
 
   useEffect(() => {
     fetchReports();
+    const interval = setInterval(() => {
+      fetchReports(true);
+    }, 5000);
+    return () => clearInterval(interval);
   }, [filters]);
 
   const fetchInitialData = async () => {
@@ -53,9 +57,9 @@ const Reports = () => {
     }
   };
 
-  const fetchReports = async () => {
+  const fetchReports = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       let queryParams = [];
       if (filters.employeeId) queryParams.push(`employeeId=${filters.employeeId}`);
       if (filters.businessId) queryParams.push(`businessId=${filters.businessId}`);
@@ -67,9 +71,9 @@ const Reports = () => {
       const res = await axios.get(`/reports${queryString}`);
       setReports(res.data.data);
     } catch (err) {
-      toast.error('Failed to fetch reports');
+      if (!isSilent) toast.error('Failed to fetch reports');
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 

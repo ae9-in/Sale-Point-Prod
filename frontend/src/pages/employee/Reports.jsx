@@ -14,17 +14,21 @@ const Reports = () => {
 
   useEffect(() => {
     fetchMyReports();
+    const interval = setInterval(() => {
+      fetchMyReports(true);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchMyReports = async () => {
+  const fetchMyReports = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const res = await axios.get('/reports');
       setReports(res.data.data);
     } catch (err) {
-      toast.error('Failed to load your reports');
+      if (!isSilent) toast.error('Failed to load your reports');
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 

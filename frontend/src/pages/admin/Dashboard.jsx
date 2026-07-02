@@ -14,20 +14,33 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('performance'); // 'performance', 'targets'
 
   useEffect(() => {
-    const fetchData = async () => {
+    let isMounted = true;
+    const fetchData = async (isSilent = false) => {
       try {
+        if (!isSilent) setLoading(true);
         const [employeesRes, businessesRes] = await Promise.all([
           axios.get('/admin/users?status=APPROVED'),
           axios.get('/businesses')
         ]);
-        setEmployees(employeesRes.data.data);
-        setBusinesses(businessesRes.data.data);
+        if (isMounted) {
+          setEmployees(employeesRes.data.data);
+          setBusinesses(businessesRes.data.data);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted && !isSilent) setLoading(false);
       }
     };
 
     fetchData();
+
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   if (loading) {

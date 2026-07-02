@@ -12,24 +12,38 @@ const Targets = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
+    if (!user?.id) return;
+    let isMounted = true;
+    const fetchData = async (isSilent = false) => {
       try {
+        if (!isSilent) setLoading(true);
         const [targetRes, bizRes] = await Promise.all([
           axios.get(`/targets/employee/${user.id}/summary`),
           axios.get('/businesses')
         ]);
-        
-        // Sort by start_date descending (newest first)
-        const sorted = (targetRes.data.data || []).sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
-        setTargets(sorted);
-        setBusinesses(bizRes.data.data || []);
+        if (isMounted) {
+          // Sort by start_date descending (newest first)
+          const sorted = (targetRes.data.data || []).sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+          setTargets(sorted);
+          setBusinesses(bizRes.data.data || []);
+        }
       } catch (err) {
-        toast.error('Failed to load targets');
+        if (!isSilent) toast.error('Failed to load targets');
       } finally {
-        setLoading(false);
+        if (isMounted && !isSilent) setLoading(false);
       }
     };
-    if (user?.id) fetchData();
+
+    fetchData();
+
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [user]);
 
   const calculateAchievement = (target, progress) => {

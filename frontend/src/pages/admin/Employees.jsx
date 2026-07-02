@@ -61,9 +61,9 @@ const Employees = () => {
     setSelectedEmployeeId((current) => current || res.data.data[0]?.id || '');
   };
 
-  const fetchBaseData = async () => {
+  const fetchBaseData = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const [, businessesRes, locationsRes] = await Promise.all([
         fetchEmployees(),
         axios.get('/businesses'),
@@ -72,28 +72,41 @@ const Employees = () => {
       setBusinesses(businessesRes.data.data);
       setLocations(locationsRes.data.data);
     } catch (err) {
-      toast.error('Failed to load employees');
+      if (!isSilent) toast.error('Failed to load employees');
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
-  const fetchEmployeeDetails = async (employeeId) => {
+  const fetchEmployeeDetails = async (employeeId, isSilent = false) => {
     if (!employeeId) return;
     try {
-      setDetailLoading(true);
+      if (!isSilent) setDetailLoading(true);
       const res = await axios.get(`/admin/employees/${employeeId}/businesses`);
       setAssignedBusinesses(res.data.data);
       setAssignBusinessId('');
     } catch (err) {
-      toast.error('Failed to load employee details');
+      if (!isSilent) toast.error('Failed to load employee details');
     } finally {
-      setDetailLoading(false);
+      if (!isSilent) setDetailLoading(false);
     }
   };
 
-  useEffect(() => { fetchBaseData(); }, []);
-  useEffect(() => { fetchEmployeeDetails(selectedEmployeeId); }, [selectedEmployeeId]);
+  useEffect(() => {
+    fetchBaseData();
+    const interval = setInterval(() => {
+      fetchBaseData(true);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    fetchEmployeeDetails(selectedEmployeeId);
+    const interval = setInterval(() => {
+      fetchEmployeeDetails(selectedEmployeeId, true);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [selectedEmployeeId]);
 
   const filteredEmployees = useMemo(() => {
     return employees.filter(emp =>

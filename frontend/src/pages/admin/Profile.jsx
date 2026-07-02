@@ -43,9 +43,9 @@ const AdminProfile = () => {
     }
   }, [user]);
 
-  const fetchAdminData = async () => {
+  const fetchAdminData = async (isSilent = false) => {
     try {
-      setDataLoading(true);
+      if (!isSilent) setDataLoading(true);
       const [employeesRes, pendingRes, doubtsRes, locationsRes] = await Promise.all([
         axios.get('/admin/users?status=APPROVED'),
         axios.get('/admin/users?status=PENDING'),
@@ -57,13 +57,19 @@ const AdminProfile = () => {
       setDoubts(doubtsRes.data.data);
       setLocations(locationsRes.data.data);
     } catch (err) {
-      toast.error('Failed to load management data');
+      if (!isSilent) toast.error('Failed to load management data');
     } finally {
-      setDataLoading(false);
+      if (!isSilent) setDataLoading(false);
     }
   };
 
-  useEffect(() => { fetchAdminData(); }, []);
+  useEffect(() => {
+    fetchAdminData();
+    const interval = setInterval(() => {
+      fetchAdminData(true);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -249,6 +255,7 @@ const AdminProfile = () => {
             <form onSubmit={handleCreateEmployee} className="space-y-4">
               <Input label="Full Name" value={employeeForm.name} onChange={(e) => setEmployeeForm({...employeeForm, name: e.target.value})} />
               <Input label="Email" type="email" value={employeeForm.email} onChange={(e) => setEmployeeForm({...employeeForm, email: e.target.value})} />
+              <Input label="Phone" value={employeeForm.phone} onChange={(e) => setEmployeeForm({...employeeForm, phone: e.target.value})} />
               <Input label="Password" type="password" value={employeeForm.password} onChange={(e) => setEmployeeForm({...employeeForm, password: e.target.value})} placeholder="••••••••" />
               
               <div className="space-y-1">
