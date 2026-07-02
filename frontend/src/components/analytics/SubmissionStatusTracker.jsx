@@ -217,7 +217,7 @@ const SubmissionStatusTracker = ({ businessId, locationId }) => {
     exportToPdf(
       'Overdue Submissions Watchdog Ledger',
       `Watchdog tracker of missed report slots for Period: ${filters.period}`,
-      'overdue-list-container',
+      'overdue-ledger-container',
       'overdue-submissions-report.pdf'
     );
   };
@@ -226,7 +226,7 @@ const SubmissionStatusTracker = ({ businessId, locationId }) => {
     exportToJpg(
       'Overdue Submissions Watchdog Ledger',
       `Watchdog tracker of missed report slots for Period: ${filters.period}`,
-      'overdue-list-container',
+      'overdue-ledger-container',
       'overdue-submissions-report.jpg'
     );
   };
@@ -456,9 +456,10 @@ const SubmissionStatusTracker = ({ businessId, locationId }) => {
               </Tbody>
             </Table>
           </div>
+          </div>
 
           {/* Integrated Overdue Members Watchdog Ledger */}
-          <div className="border-t border-dark-border/40 my-8 pt-6">
+          <div id="overdue-ledger-container" className="border-t border-dark-border/40 my-8 pt-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
               <div>
                 <h3 className="text-xs font-black uppercase tracking-widest text-content-primary flex items-center gap-2">
@@ -562,8 +563,6 @@ const SubmissionStatusTracker = ({ businessId, locationId }) => {
                 </Table>
               </div>
             )}
-          </div>
-
           </div>
         </>
       )}

@@ -40,6 +40,13 @@ export const exportToPdf = async (title, description, elementId, filename) => {
   const allElements = clone.querySelectorAll('*');
   allElements.forEach(el => {
     const style = window.getComputedStyle(el);
+    if (style.position === 'sticky' || el.classList.contains('sticky')) {
+      el.style.setProperty('position', 'static', 'important');
+      el.style.setProperty('left', 'auto', 'important');
+      el.style.setProperty('right', 'auto', 'important');
+      el.style.setProperty('top', 'auto', 'important');
+      el.style.setProperty('bottom', 'auto', 'important');
+    }
     if (style.overflow !== 'visible') el.style.setProperty('overflow', 'visible', 'important');
     if (style.overflowX !== 'visible') el.style.setProperty('overflow-x', 'visible', 'important');
     if (style.overflowY !== 'visible') el.style.setProperty('overflow-y', 'visible', 'important');
@@ -113,6 +120,13 @@ export const exportToJpg = async (title, description, elementId, filename) => {
   const allElements = clone.querySelectorAll('*');
   allElements.forEach(el => {
     const style = window.getComputedStyle(el);
+    if (style.position === 'sticky' || el.classList.contains('sticky')) {
+      el.style.setProperty('position', 'static', 'important');
+      el.style.setProperty('left', 'auto', 'important');
+      el.style.setProperty('right', 'auto', 'important');
+      el.style.setProperty('top', 'auto', 'important');
+      el.style.setProperty('bottom', 'auto', 'important');
+    }
     if (style.overflow !== 'visible') el.style.setProperty('overflow', 'visible', 'important');
     if (style.overflowX !== 'visible') el.style.setProperty('overflow-x', 'visible', 'important');
     if (style.overflowY !== 'visible') el.style.setProperty('overflow-y', 'visible', 'important');
